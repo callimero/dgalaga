@@ -37,8 +37,14 @@ entspricht, und einem mit Erweiterungen wie Breitbild.
 **Pico Deluxe** ist eine kleine Verbeugung davor: kein Nachbau, sondern der
 Versuch, das Gefühl von Formation, Sturzflug und Sternfeld in die engen
 Grenzen von PICO-8 (128 × 128 Pixel, 16 Farben, 6 Tasten) zu bringen – und
-dabei Lua wieder zu lernen. Wer das echte Spiel erleben will: auf
-[deluxegalaga.com](https://deluxegalaga.com/index.html) gibt es das.
+dabei Lua wieder zu lernen. Grafisch wird das natürlich sehr rudimentär;
+worauf es ankommt, ist das Spielgefühl, und das soll möglichst gut
+eingefangen werden.
+
+Wer das echte Spiel erleben will, braucht zum Glück weder einen Amiga noch
+einen Emulator: Auf [deluxegalaga.com](https://deluxegalaga.com/index.html)
+läuft es inzwischen sogar im Browser – in voller AGA-Pracht, dem Grafikmodus
+der neueren Amigas (A1200/A4000).
 
 ## Stand
 
