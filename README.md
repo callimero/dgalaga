@@ -17,7 +17,7 @@ aufzufrischen. Claude hilft mit Antworten auf konkrete Fragen.
 den 1990er-Jahren, geschrieben von dem Norweger **Edgar M. Vigdal**. Es nimmt
 die Idee des Arcade-Klassikers *Galaga* (Namco, 1981) – Feinde fliegen in
 Formation ein und stürzen sich einzeln drehend herab – und macht daraus
-deutlich mehr: Extras und Waffen zum Kaufen, viele Level, Bosse,
+deutlich mehr: Extras und Waffen zum Kaufen, viele Level,
 Meteoritenstürme. Verbreitet wurde es unter anderem über die Cover-Disks
 von Zeitschriften; in der Liste „Top 100 Amiga Games of All Time“ steht es
 auf Platz 19.
@@ -38,7 +38,7 @@ entspricht, und einem mit Erweiterungen wie Breitbild.
 Versuch, das Gefühl von Formation, Sturzflug und Sternfeld in die engen
 Grenzen von PICO-8 (128 × 128 Pixel, 16 Farben, 6 Tasten) zu bringen – und
 dabei Lua wieder zu lernen. Wer das echte Spiel erleben will: auf
-[deluxegalaga.com](https://deluxegalaga.com/index.html) gibt es es.
+[deluxegalaga.com](https://deluxegalaga.com/index.html) gibt es das.
 
 ## Stand
 
