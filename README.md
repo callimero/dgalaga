@@ -51,12 +51,28 @@ der neueren Amigas (A1200/A4000).
 - Titel, Spiel als Zustände über `_update60=funktion`
 - Sternfeld mit 100 Sternen in verschiedenen Tiefen (Tempo und Helligkeit),
   dunkles Grau aus der geheimen Palette
-- Schiff mit Neigung beim Lenken, Schüsse
-- Feinde als Platzhalter (Formation folgt)
+- Schiff mit Neigung beim Lenken
+- **Schüsse wie im Original:** ein Magazin mit 3 Schüssen, je Tastendruck
+  einer (Festhalten feuert nicht automatisch). Erst wenn es leer ist, lädt
+  es nach – also gut haushalten.
+- **Waffen:** Einzel-, Doppel- und Dreifachschuss; der Dreifachschuss
+  fächert auseinander. Später als Extras, zum Testen mit ⬆️ umschaltbar.
+- **Gegner als Objekte** mit drei Arten der Darstellung:
+  - Flattern in der Formation (Bilder nach Zeit, jeder Gegner mit eigenem
+    Takt und Startbild, damit die Formation nicht im Gleichschritt flattert)
+  - Flug mit Blick in Flugrichtung
+  - Sturzflug mit gleichmäßiger Drehung
+  - 8 Richtungen aus nur 3 Sprites pro Gegner (gerade, schräg, seitlich)
+    plus Spiegeln
+- **Demo:** Formation aus roten, grünen und blauen Gegnern, je einer stürzt
+  sich drehend herab, ein „Bug“ (2×2-Sprite) flattert über den Grünen und
+  wirft Plasmabälle
 
 ## Geplant
 
-- Feind-Formation, Einflug, Sturzflug-Angriffe mit Drehung
+- Einflug der Formation, Angriffe auf den Spieler
+- Treffer und Explosionen, Punkte, Leben
+- Extras (mehr Schüsse, Waffen)
 - Level und Übergänge
 - Meteoritensturm
 
@@ -66,9 +82,9 @@ der neueren Amigas (A1200/A4000).
 |---|---|
 | ⬅️ ➡️ | fliegen |
 | ❎ | schießen |
-| 🅾️ | zurück zum Titel |
+| ⬆️ | Waffe wechseln (nur zum Testen) |
 
-Im Browser: Pfeiltasten, **X** schießt, **Z** = 🅾️.
+Im Browser: Pfeiltasten, **X** schießt.
 
 ## Dateien
 
