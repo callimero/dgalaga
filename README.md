@@ -71,6 +71,10 @@ der neueren Amigas (A1200/A4000).
 - **Abschießen:** kleine Gegner brauchen einen Treffer, der Käfer mehrere
   (einstellbar) und blitzt bei jedem Treffer weiß auf. Explosion aus
   Sprite-Animation und Funken in der Farbe des Gegners.
+- **Angriffswellen** mit 1, 1, 2, 2, 3, 3 … Angreifern gleichzeitig. Sie
+  schießen wie im Original nur senkrecht nach unten, in Salven von 1–3
+  Schüssen: beim Abtauchen und nach dem Kreisel im Sinkflug – bis knapp
+  über das eigene Schiff. Ausweichen ist Pflicht (Treffer folgen noch).
 - Lebensanzeige oben rechts (Punkte und Highscore kommen zwischen den Leveln)
 
 ## Geplant

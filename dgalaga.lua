@@ -22,6 +22,14 @@ reload_time=20 -- frames per shot
 shot_spd=3     -- px/frame
 pb={} -- enemy plasma balls
 pt={} -- particles
+eb={} -- enemy bullets
+eshot_spd=1.5   -- px/frame
+eshot_cool=40   -- frames between
+                -- salvos (+random)
+salvo_max=3     -- shots per salvo
+                -- (1..salvo_max)
+salvo_gap=14    -- frames between
+                -- shots of a salvo
 trail_life=15   -- frames a plasma
                 -- particle lives
 
@@ -29,8 +37,12 @@ trail_life=15   -- frames a plasma
 form_sway=12    -- px left/right
 form_period=8   -- secs per swing
 dive_every=120  -- frames between
-                -- dives (+random)
+                -- waves (+random)
+wave={1,1,2,2,3,3} -- divers per
+                -- wave, repeats
 dive_spd=1      -- px/frame
+dive_pre=15     -- frames down
+                -- before the spin
 dive_spin=1/30  -- turns/frame
 dive_turns=2    -- spins, then stop
                 -- (+0..2 random)
@@ -109,6 +121,7 @@ function _init()
 		end
 	end
 	dive_cool=dive_every
+	wave_n=0
 	-- bug flutters over the greens
 	local o=obj_new("bug",64,24)
 	o.cool=60
@@ -157,6 +170,7 @@ function game()
 	end
  enem()
  plasma()
+ ebullets()
 	bullets()
 	spr(19+til,p.x,p.y)
 	hud()
@@ -308,22 +322,36 @@ end
 
 -- now and then one enemy leaves
 -- the formation
+-- waves of divers: sizes from
+-- wave, next wave when the time
+-- is up and all are back home
 function start_dive()
 	dive_cool-=1
-	if (dive_cool>0) return
-	dive_cool=dive_every+rnd(dive_every)
 	local f={}
 	for en in all(e) do
 		if (en.st=="form") add(f,en)
+		-- someone still out: wait
+		if (en.st=="dive" or en.st=="back") return
 	end
-	if (#f==0) return
-	local o=rnd(f)
-	o.st,o.mode="dive","spin"
-	o.a,o.v,o.rate=0.75,dive_spd,dive_spin
-	-- how far it spins (turns)
-	o.spin=dive_turns+rnd(2)
-	-- arc to the left or right
-	o.curve=rnd({-1,1})*0.002
+	if (dive_cool>0 or #f==0) return
+	dive_cool=dive_every+rnd(dive_every)
+	wave_n=wave_n%#wave+1
+	for i=1,min(wave[wave_n],#f) do
+		local o=rnd(f)
+		del(f,o)
+		-- first straight down, then
+		-- the spin (see form_move)
+		o.st,o.mode="dive","dir"
+		o.pre=dive_pre
+		o.a,o.v,o.rate=0.75,dive_spd,dive_spin
+		-- how far it spins (turns)
+		o.spin=dive_turns+rnd(2)
+		-- arc to the left or right
+		o.curve=rnd({-1,1})*0.002
+		-- shot when leaving the
+		-- formation
+		eshoot(o)
+	end
 end
 
 -- formation states:
@@ -337,9 +365,33 @@ function form_move(o)
 	elseif o.st=="dive" then
 		-- spun enough: image points
 		-- where it flies again
-		if o.mode=="spin" then
+		-- 1. straight down, no shots
+		if o.pre>0 then
+			o.pre-=1
+			if (o.pre<=0) o.mode="spin"
+		-- 2. spin, no shots
+		elseif o.mode=="spin" then
 			o.spin-=o.rate
-			if (o.spin<=0) o.mode="dir"
+			-- spin over: sink and shoot
+			-- right away
+			if o.spin<=0 then
+				o.mode="dir"
+				o.cool=0
+			end
+		-- 3. sinking: shoot while above
+		-- the ship
+		elseif o.y<p.y then
+			o.cool-=1
+			if (o.cool<=0) eshoot(o)
+		end
+		-- salvo running: next shot
+		if o.burst>0 and o.y<p.y then
+			o.bgap-=1
+			if o.bgap<=0 then
+				add(eb,{x=o.x,y=o.y+4,dx=0,dy=eshot_spd})
+				o.burst-=1
+				o.bgap=salvo_gap
+			end
 		end
 		-- out of the screen (any side):
 		-- back in at the top
@@ -366,6 +418,26 @@ function form_move(o)
 		if n<1 then
 			o.st,o.mode="form","anim"
 		end
+	end
+end
+
+-- start a salvo of 1..salvo_max
+-- shots, straight down. the shots
+-- are fired in form_move
+function eshoot(o)
+	o.burst=flr(rnd(salvo_max))+1
+	o.bgap=0
+	o.cool=eshot_cool+rnd(eshot_cool)
+end
+
+-- enemy bullets fly straight,
+-- gone outside the screen
+function ebullets()
+	for q in all(eb) do
+		q.x+=q.dx
+		q.y+=q.dy
+		spr(0,q.x-4,q.y-3)
+		if (q.y>132 or q.x<-8 or q.x>136) del(eb,q)
 	end
 end
 
