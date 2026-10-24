@@ -8,20 +8,37 @@
  	
 -- settings
 
-p={x=64-4, y=110}
+p={x=64-4, y=118, w=1} -- w: weapon
 s={}
 ns=100
 e={}
 ne=10
 b={} --ringbuffer later
+-- own shots: magazine, reloads
+-- only when empty
+shot_max=3     -- shots in magazine
+               -- (extras: more)
+reload_time=20 -- frames per shot
+shot_spd=3     -- px/frame
+pb={} -- enemy plasma balls
 
--- animationen nach zeit: je bild
+-- weapons: list of projectiles
+-- per shot, {sprite,dx}
+wpn={
+	{{4,0}},                  -- single
+	{{5,0}},                  -- double
+	{{4,-0.6},{4,0},{4,0.6}}, -- triple
+}
+
+-- animations by time: per frame
 -- {sprite,flip_x,flip_y,frames}
 anim={
-	gruen={{144,false,false,20},{145,false,false,20}},
-	rot={{128,false,false,20},{129,false,false,20}},
-	blau={{160,false,false,20},{161,false,false,20}},
-	muenze={{112,false,false,6},{113,false,false,6},
+	green={{144,false,false,20},{145,false,false,20}},
+	red={{128,false,false,20},{129,false,false,20}},
+	blue={{160,false,false,20},{161,false,false,20}},
+	-- sz=2: sprite is 2x2
+	bug={{164,false,false,12},{166,false,false,12},sz=2},
+	coin={{112,false,false,6},{113,false,false,6},
 		{114,false,false,6},{115,false,false,6},
 		{115,false,true,6},{114,false,true,6},
 		{113,false,true,6},{112,false,true,6}},
@@ -30,37 +47,41 @@ anim={
 
 function _init()
 	pal(4,133,1)
+	-- btnp without auto repeat:
+	-- holding = one shot
+	poke(0x5f5c,255)
+	ammo=shot_max
+	reload=0
+	reloading=false
 	-- stars init
 	for i=1,ns do
 		add(s,{x=rnd(128),y=rnd(128),z=rnd(10)+2})		
 	end
-	-- drehung: 8 richtungen je typ
-	dreh={gruen=dreh_tab(144),
-		rot=dreh_tab(128),blau=dreh_tab(160)}
-	-- demo: formation flattert,
-	-- je typ eine reihe
-	for r,typ in pairs({"rot","gruen","blau"}) do
+	-- rotation: 8 directions per kind
+	rot={green=rot_tab(144),
+		red=rot_tab(128),blue=rot_tab(160)}
+	-- demo: formation flutters,
+	-- one row per kind
+	for r,k in ipairs({"red","green","blue"}) do
 		for i=0,4 do
-			add(e,obj_neu(typ,24+i*20,r*12))
+			add(e,obj_new(k,24+i*20,r*12))
 		end
 	end
-	-- je einer stuerzt drehend herab
-	-- (versetzt, verschieden schnell)
-	for k,typ in pairs({"rot","gruen","blau"}) do
-		local o=obj_neu(typ,14+k*24,-40*k,"drehen")
-		o.a,o.v,o.rate=0.75,0.3+k*0.1,1/(30+k*10)
+	-- one of each dives spinning
+	-- (staggered, different speeds)
+	for n,k in ipairs({"red","green","blue"}) do
+		local o=obj_new(k,14+n*24,-40*n,"spin")
+		o.a,o.v,o.rate=0.75,0.3+n*0.1,1/(30+n*10)
 		add(e,o)
 	end
-	-- blau fliegt im kreis, bild
-	-- zeigt in flugrichtung
-	local o=obj_neu("blau",64,80,"richtung")
-	o.v,o.kurve=0.5,0.004
+	-- blue flies a circle, image
+	-- points where it flies
+	local o=obj_new("blue",64,80,"dir")
+	o.v,o.curve=0.5,0.004
 	add(e,o)
-	-- muenze dreht sich am platz
-	add(e,obj_neu("muenze",112,80))
-	-- muenze faellt
-	o=obj_neu("muenze",104,-10)
-	o.v=0.3
+	-- bug flutters over the greens
+	o=obj_new("bug",64,24)
+	o.cool=60
 	add(e,o)
 	_update60=title
 end
@@ -85,86 +106,103 @@ function game()
 	 p.x=p.x+1 --and < 128
 	 til=1
  end	
-	if(btn(❎)) then
-		-- cooldown wweapon
-		-- repeat only when autofire 
-		add(b,{x=p.x,y=p.y-4})
+	-- debug: up = next weapon
+	if (btnp(⬆️)) p.w=p.w%#wpn+1
+	-- fire: one shot per press
+	-- while there is ammo
+	if btnp(❎) and ammo>0 then
+		shoot(p.w)
+		ammo-=1
 	end
-	bullets()
-	spr(1+til,p.x,p.y)
+	-- empty: reload one shot every
+	-- reload_time frames until full
+	if (ammo==0) reloading=true
+	if reloading then
+		reload+=1
+		if reload>=reload_time then
+			ammo+=1
+			reload=0
+			if (ammo==shot_max) reloading=false
+		end
+	end
  enem()
+ plasma()
+	bullets()
+	spr(19+til,p.x,p.y)
 end
 -->8
--- ====== objekte ======
--- objekt: x,y = mitte
--- modus:
---  "anim"     bilder nach zeit
---  "richtung" bild zeigt in
---             flugrichtung a
---  "drehen"   bild dreht sich
---             mit rate, egal
---             wohin es fliegt
--- winkel in umdrehungen:
--- 0=rechts 0.25=oben 0.5=links
--- 0.75=unten
--- a: flugrichtung, v: tempo,
--- kurve: a-aenderung je frame
--- ba: winkel des bildes
--- tempo: eigener animations-takt
--- (0.9..1.1), start an zufaelliger
--- stelle der animation -> die
--- formation flattert nicht synchron
-function obj_neu(typ,x,y,modus)
-	local o={typ=typ,x=x,y=y,
-		modus=modus or "anim",
-		an=anim[typ],dr=dreh[typ],
-		a=0.75,v=0,kurve=0,
-		ba=0.75,rate=0,
-		tempo=0.9+rnd(0.2)}
+-- ====== objects ======
+-- object: x,y = center
+-- mode:
+--  "anim" frames by time
+--  "dir"  image points in
+--         flight direction a
+--  "spin" image spins with
+--         rate, wherever it
+--         flies
+-- angles in turns:
+-- 0=right 0.25=up 0.5=left
+-- 0.75=down
+-- a: direction, v: speed,
+-- curve: change of a per frame
+-- ia: image angle
+-- aspd: own animation speed
+-- (0.9..1.1), random start
+-- frame -> formation does not
+-- flutter in sync
+function obj_new(k,x,y,mode)
+	local o={k=k,x=x,y=y,
+		mode=mode or "anim",
+		an=anim[k],rt=rot[k],
+		a=0.75,v=0,curve=0,
+		ia=0.75,rate=0,
+		aspd=0.9+rnd(0.2)}
 	o.f=flr(rnd(#o.an))+1
 	o.t=rnd(o.an[o.f][4])
 	return o
 end
 
-function obj_weiter(o)
-	-- fliegen
-	o.a=(o.a+o.kurve)%1
+function obj_update(o)
+	-- fly
+	o.a=(o.a+o.curve)%1
 	o.x+=cos(o.a)*o.v
 	o.y+=sin(o.a)*o.v
-	-- bildwinkel
-	if o.modus=="drehen" then
-		o.ba=(o.ba+o.rate)%1
+	-- image angle
+	if o.mode=="spin" then
+		o.ia=(o.ia+o.rate)%1
 	else
-		o.ba=o.a
+		o.ia=o.a
 	end
-	-- bilder nach zeit
-	o.t+=o.tempo
+	-- frames by time
+	o.t+=o.aspd
 	if o.t>=o.an[o.f][4] then
-		-- rest behalten: takt bleibt genau
+		-- keep rest: exact timing
 		o.t-=o.an[o.f][4]
 		o.f=o.f%#o.an+1
 	end
 end
 
-function obj_zeichne(o)
-	local b
-	if o.modus=="anim" then
-		b=o.an[o.f]
+function obj_draw(o)
+	local fr
+	if o.mode=="anim" then
+		fr=o.an[o.f]
 	else
-		b=o.dr[flr(o.ba*8+0.5)%8+1]
+		fr=o.rt[flr(o.ia*8+0.5)%8+1]
 	end
-	spr(b[1],o.x-4,o.y-4,1,1,b[2],b[3])
+	-- size in sprites (1 or 2)
+	local z=o.an.sz or 1
+	spr(fr[1],o.x-4*z,o.y-4*z,z,z,fr[2],fr[3])
 end
 
--- drehtabelle aus einer sprite-
--- reihe: n=vorn, n+2=schraeg,
--- n+3=seite. index 1..8 =
--- rechts,rechts-oben,oben,
--- links-oben,links,links-unten,
--- unten,rechts-unten.
--- zeigt ein bild falsch herum:
--- hier die flips tauschen
-function dreh_tab(n)
+-- rotation table from a sprite
+-- row: n=front, n+2=diagonal,
+-- n+3=side. index 1..8 =
+-- right,up-right,up,up-left,
+-- left,down-left,down,
+-- down-right.
+-- image upside down: swap the
+-- flips here
+function rot_tab(n)
 	return {
 		{n+3,false,false},
 		{n+2,false,false},
@@ -176,12 +214,36 @@ function dreh_tab(n)
 		{n+2,false,true}}
 end
 
+-- bug: swings over the formation,
+-- shoots now and then
+function bug_move(o)
+	o.x=64+sin(t()/6)*44
+	o.y=24+sin(t()/1.5)*2
+	o.cool-=1
+	if o.cool<=0 then
+		add(pb,{x=o.x,y=o.y+6})
+		o.cool=40+rnd(60)
+	end
+end
+
+-- plasma balls fall down,
+-- gone at the bottom
+function plasma()
+	for k in all(pb) do
+		k.y+=1
+		spr(51,k.x-4,k.y-4)
+		if (k.y>132) del(pb,k)
+	end
+end
+
 function enem()
 	for en in all(e) do
-		obj_weiter(en)
-		-- demo: unten raus, oben rein
+		if (en.k=="bug") bug_move(en)
+		obj_update(en)
+		-- demo: out at the bottom,
+		-- in at the top
 		if (en.y>136) en.y=-8
-		obj_zeichne(en)
+		obj_draw(en)
 	end
 end
 
@@ -197,11 +259,22 @@ function stars()
 	end
 end
 
-function bullets()
-	for bu in all(b) do
-		if bu.y>-5 then
-			bu.y=bu.y-1
-		end
-		spr(4,bu.x,bu.y)
+-- fire weapon w: one bullet per
+-- projectile, each keeps its
+-- sprite and sideways speed
+function shoot(w)
+	for pr in all(wpn[w]) do
+		add(b,{x=p.x,y=p.y-4,s=pr[1],dx=pr[2]})
 	end
 end
+
+function bullets()
+	for bu in all(b) do
+		bu.x+=bu.dx
+		bu.y-=shot_spd
+		spr(bu.s,bu.x,bu.y)
+		-- gone at the top
+		if (bu.y<-8) del(b,bu)
+	end
+end
+
