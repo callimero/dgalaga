@@ -64,14 +64,20 @@ der neueren Amigas (A1200/A4000).
   - Sturzflug mit gleichmäßiger Drehung
   - 8 Richtungen aus nur 3 Sprites pro Gegner (gerade, schräg, seitlich)
     plus Spiegeln
-- **Demo:** Formation aus roten, grünen und blauen Gegnern, je einer stürzt
-  sich drehend herab, ein „Bug“ (2×2-Sprite) flattert über den Grünen und
-  wirft Plasmabälle
+- **Formation** aus roten, grünen und blauen Gegnern, die langsam hin und
+  her pendelt. Ab und zu stürzt einer kreiselnd heraus, fliegt einen Bogen,
+  kommt von oben zurück und reiht sich wieder ein.
+- **Käfer** (2×2-Sprite) flattert über den Grünen und wirft „Säure“ –
+  Plasmabälle mit grün verglühendem Schweif
+- **Abschießen:** kleine Gegner brauchen einen Treffer, der Käfer mehrere
+  (einstellbar) und blitzt bei jedem Treffer weiß auf. Explosion aus
+  Sprite-Animation und Funken in der Farbe des Gegners.
+- Lebensanzeige oben rechts (Punkte und Highscore kommen zwischen den Leveln)
 
 ## Geplant
 
 - Einflug der Formation, Angriffe auf den Spieler
-- Treffer und Explosionen, Punkte, Leben
+- Treffer auf das eigene Schiff, Punkte- und Highscore-Anzeige zwischen den Leveln
 - Extras (mehr Schüsse, Waffen)
 - Level und Übergänge
 - Meteoritensturm
