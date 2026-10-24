@@ -1,11 +1,10 @@
-# Pico Deluxe (PICO-8)
+# Deluxe Galaga Remake (PICO-8)
 
 Ein Shooter nach dem Vorbild von **[Deluxe Galaga](https://deluxegalaga.com/index.html)**
 von Edgar M. Vigdal (1958–2015), für die Fantasy-Konsole
-[PICO-8](https://www.lexaloffle.com/pico-8.php) – noch ganz am Anfang.
+[PICO-8](https://www.lexaloffle.com/pico-8.php) WIP.
 
-Diesmal schreibe ich den Code selbst, um mein eingerostetes Lua und PICO-8
-aufzufrischen. Claude hilft mit Antworten auf konkrete Fragen.
+Viel Grafiken zu machen, nicht einfach den Stil der Aliens zu treffen bei der geringen Auflösung. 
 
 **[▶ Im Browser spielen](https://callimero.github.io/dgalaga/)**
 
