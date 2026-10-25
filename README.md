@@ -1,8 +1,4 @@
-<<<<<<< Updated upstream
-# Deluxe Galaga Demake (PICO-8)
-=======
 # Pico8 Deluxe Galaga
->>>>>>> Stashed changes
 
 Ein Shooter nach dem Vorbild von **[Deluxe Galaga](https://deluxegalaga.com/index.html)**
 von Edgar M. Vigdal (1958–2015), für die Fantasy-Konsole
