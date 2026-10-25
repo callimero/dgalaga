@@ -1,4 +1,8 @@
+<<<<<<< Updated upstream
 # Deluxe Galaga Demake (PICO-8)
+=======
+# Pico8 Deluxe Galaga
+>>>>>>> Stashed changes
 
 Ein Shooter nach dem Vorbild von **[Deluxe Galaga](https://deluxegalaga.com/index.html)**
 von Edgar M. Vigdal (1958–2015), für die Fantasy-Konsole
@@ -11,7 +15,7 @@ Viel Grafiken zu machen, nicht einfach den Stil der Aliens zu treffen bei der ge
 
 **[▶ Im Browser spielen](https://callimero.github.io/dgalaga/)**
 
-![Pico Deluxe](dgalaga.p8.png)
+![Pico8 Deluxe Galaga](dgalaga.p8.png)
 
 ## Woher – Deluxe Galaga
 
@@ -36,7 +40,7 @@ Enhanced*, eine Neuübersetzung des originalen Assembler-Codes nach C für
 Windows, Mac, Linux und den Browser – mit einem Modus, der exakt dem Original
 entspricht, und einem mit Erweiterungen wie Breitbild.
 
-**Pico Deluxe** ist eine kleine Verbeugung davor: kein Nachbau, sondern der
+**Pico8 Deluxe Galaga** ist eine kleine Verbeugung davor: kein Nachbau, sondern der
 Versuch, das Gefühl von Formation, Sturzflug und Sternfeld in die engen
 Grenzen von PICO-8 (128 × 128 Pixel, 16 Farben, 6 Tasten) zu bringen – und
 dabei Lua wieder zu lernen. Grafisch wird das natürlich sehr rudimentär;
@@ -96,8 +100,6 @@ der neueren Amigas (A1200/A4000).
 ## Geplant
 
 - Einflug der Formation, Angriffe auf den Spieler
-- Level-Editor als Webseite (lädt die Cart, zeigt die Level, Bahnen per
-  Maus, Vorschau mit den echten Sprites)
 - Extras (mehr Schüsse, Waffen)
 - Level und Übergänge
 - Meteoritensturm
@@ -120,7 +122,8 @@ Im Browser: Pfeiltasten, **X** schießt.
 | `dgalaga.p8` | die Cart (in PICO-8: `load dgalaga`) |
 | `dgalaga.p8.png` | dieselbe Cart als Bild-Datei |
 | `dgalaga.lua` | der Quellcode zum Lesen |
-| `tools/levels.py` | schreibt die Level in die Map (bis der Editor fertig ist) |
+| `editor/index.html` | Level-Editor ([online](https://callimero.github.io/dgalaga/editor/)): lädt die Cart, Formation und Bézier-Ströme per Maus, Vorschau mit den echten Sprites, speichert direkt in die Cart (Chrome/Edge) mit nummerierten Backups |
+| `tools/levels.py` | Notlösung: schreibt Level per Skript in die Map |
 
 ## Hinweis
 

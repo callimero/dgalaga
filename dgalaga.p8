@@ -56,10 +56,9 @@ kinds={"red","green","blue","bug"}
 between_time=150 -- frames of the
                 -- screen between
                 -- levels
-bonus_msg=270   -- frames "bonus
-                -- stage" blinks
-bonus_wait=120  -- frames before the
-                -- bonus ships come
+bonus_msg=180   -- frames "bonus
+                -- stage" blinks,
+                -- then the ships come
 end_wait=90     -- frames the level
                 -- goes on after the
                 -- last enemy (and no
@@ -76,8 +75,12 @@ roam_bottom=60  -- lowest y
 -- formation
 form_dx=14      -- px between cols
 form_dy=12      -- px between rows
+                -- (defaults, each
+                -- level has its own)
 form_top=14     -- y of row 0
 form_sway=12    -- px left/right
+                -- (less if the
+                -- formation is wide)
 form_period=8   -- secs per swing
 dive_every=120  -- frames between
                 -- waves (+random)
@@ -161,7 +164,7 @@ end
 
 function title()
 	cls(0)
-	print("pico deluxe",40,30,10)
+	print("pico8 deluxe galaga",26,30,10)
 	_update60=game
  if(btnp(❎))  _update60=game
 end
@@ -398,9 +401,9 @@ end
 -- formation, whole formation
 -- swings left and right
 function slot(o)
-	return 64+(o.col-(lev.c-1)/2)*form_dx
-		+sin(t()/form_period)*form_sway,
-		form_top+o.row*form_dy
+	return 64+(o.col-lev.rc[o.row])*lev.dx
+		+sin(t()/form_period)*lev.sway,
+		form_top+o.row*lev.dy
 end
 
 -- now and then one enemy leaves
@@ -672,9 +675,11 @@ end
 
 -->8
 -- ====== levels ======
--- level in the map, from 0x2000:
--- len (0=end of list), type
--- (0 normal,1 bonus), cols, rows,
+-- levels in the map: "dg" and
+-- format version 2, then per
+-- level: len (0=end of list),
+-- type (0 normal,1 bonus), cols,
+-- rows, col and row spacing px,
 -- per slot: kind+16*stream,
 -- streams, per stream: delay/4,
 -- gap, speed*16, kind+count (only
@@ -684,23 +689,36 @@ end
 -- read level n (after the last:
 -- start again with level 1)
 function load_level(n)
-	local a=0x2000
+	local a=0x2003
 	for i=2,n do
 		a+=peek(a)
-		if (peek(a)==0) a=0x2000
+		if (peek(a)==0) a=0x2003
 	end
 	local function rd()
 		a+=1
 		return peek(a)
 	end
 	local l={bonus=rd()==1,c=rd(),r=rd(),
+		dx=rd(),dy=rd(),rc={},
 		slots={},q={},t=0,hits=0,n=0,done=0}
+	-- each row centered on its own
+	-- first..last used slot
+	local lo,hi=99,-99
 	for row=0,l.r-1 do
+		local a0,a1=99,-99
 		for col=0,l.c-1 do
 			local v=rd()
-			if (v%16>0) add(l.slots,{col=col,row=row,k=kinds[v%16],st=v\16})
+			if v%16>0 then
+				add(l.slots,{col=col,row=row,k=kinds[v%16],st=v\16})
+				a0,a1=min(a0,col),max(a1,col)
+			end
 		end
+		l.rc[row]=(a0+a1)/2
+		lo,hi=min(lo,a0-l.rc[row]),max(hi,a1-l.rc[row])
 	end
+	-- sway: less if the formation
+	-- is wide (keep it on screen)
+	l.sway=mid(0,(120-(hi-lo)*l.dx)/2,form_sway)
 	for si=1,rd() do
 		local st={delay=rd()*4,gap=rd(),v=rd()/16,
 			k=kinds[rd()],n=rd(),m=rd(),pts={}}
@@ -711,7 +729,7 @@ function load_level(n)
 		local j=0
 		if l.bonus then
 			for i=1,st.n do
-				add(l.q,{t=bonus_wait+st.delay+j*st.gap,st=st,k=st.k})
+				add(l.q,{t=bonus_msg+st.delay+j*st.gap,st=st,k=st.k})
 				j+=1
 			end
 		else
@@ -1077,5 +1095,5 @@ __label__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 
 __map__
-30000503001111210012122222221313232323020008180000017034708646a058720a08180000018f348f86b9a0a772500007030011113421210012121232222222131313332323230300071a000002345e725486a868a04a985072686c00071a000002cb5e8d5479a897a0b598af72976c0f0e13000001802c804a805e8072
-2101000002000a1801080134547cbc862ccc7c190a18020801cc5e7cc6722c34860000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+4447023b0008030b0c121212122222222212121212222222221212121222222222020008180000017034708646a058720a08180000018f348f86b9a0a772520007030e0c0011113421210012121232222222131313332323230300071a000002345e725486a868a04a985072686c00071a000002cb5e8d5479a897a0b598af72
+976c0f0e13000001802c804a805e8072230100000e0c02000a1801080134547cbc862ccc7c190a18020801cc5e7cc6722c34860000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000

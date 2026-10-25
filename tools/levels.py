@@ -4,10 +4,10 @@ memory 0x2000-0x2fff). Stand-in until the web level editor exists.
 
 Usage:  python3 tools/levels.py dgalaga.p8
 
-Format per level (bytes):
+Map starts with "DG" and the format version (2), then per level:
   len (whole level incl. this byte; 0 = end of list)
   type (0 normal, 1 bonus)
-  cols, rows
+  cols, rows, col spacing px, row spacing px
   per slot (row by row): kind + 16*stream   (kind 0 = empty)
   number of streams
   per stream: delay/4, gap (frames), speed*16, kind, count
@@ -83,7 +83,7 @@ def encode(lv):
     strm = lv.get('stream', [])
     rows = len(grid)
     cols = len(grid[0]) if grid else 0
-    out += [cols, rows]
+    out += [cols, rows, lv.get('dx', 14), lv.get('dy', 12)]
     for r in range(rows):
         for c in range(cols):
             k = KIND[grid[r][c]]
@@ -107,7 +107,7 @@ def encode(lv):
 
 def main():
     path = sys.argv[1]
-    data = []
+    data = [ord('D'), ord('G'), 2]
     for i, lv in enumerate(LEVELS):
         b = encode(lv)
         print('level %d: %d bytes' % (i + 1, len(b)))

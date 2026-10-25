@@ -1,0 +1,646 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Level Editor</title>
+<style>
+:root {
+  --bg:#16181d; --panel:#1f2229; --line:#353a45; --fg:#e6e6e6; --dim:#9aa1ad;
+  --akz:#ffec27; --warn:#ff9d4d; --ok:#88ff55;
+}
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.35 system-ui,sans-serif; }
+header { display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:10px 14px; border-bottom:1px solid var(--line); }
+header h1 { font-size:17px; margin:0 10px 0 0; }
+header .info { color:var(--dim); font-size:13px; }
+button, select, input { font:inherit; color:var(--fg); background:#2a2e37; border:1px solid var(--line); border-radius:4px; padding:3px 8px; }
+button { cursor:pointer; }
+button:hover:not(:disabled) { border-color:#5a6170; }
+button:disabled { opacity:0.45; cursor:default; }
+button.on { background:#3b4252; border-color:var(--akz); }
+button.primary { background:#3a3510; border-color:var(--akz); color:var(--akz); }
+input[type=number] { width:72px; }
+main { display:grid; grid-template-columns:270px auto 400px; gap:12px; padding:12px; align-items:start; }
+@media (max-width:1300px) { main { grid-template-columns:1fr; } }
+section { background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:10px; margin-bottom:12px; }
+section h2 { font-size:14px; margin:0 0 8px; color:var(--akz); }
+.row { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:5px 0; }
+.row label { color:var(--dim); font-size:13px; }
+.field { display:inline-flex; gap:4px; align-items:center; }
+#levels { list-style:none; margin:0; padding:0; }
+#levels li { padding:4px 6px; border-radius:4px; cursor:pointer; display:flex; justify-content:space-between; gap:6px; }
+#levels li.sel { background:#3b4252; }
+#levels li span { color:var(--dim); font-size:12px; }
+canvas { image-rendering:pixelated; display:block; background:#000; border:1px solid var(--line); max-width:100%; }
+#grid { display:grid; gap:2px; margin-top:6px; }
+#grid div { width:30px; height:30px; background:#000; border:2px solid #333; display:flex; align-items:center; justify-content:center; cursor:pointer; position:relative; }
+#grid div canvas { border:0; background:transparent; width:24px; height:24px; }
+#grid div b { position:absolute; right:1px; bottom:-1px; font-size:10px; }
+.stream { border-left:4px solid; padding-left:8px; margin:8px 0; }
+.hint { color:var(--dim); font-size:12px; margin:6px 0; }
+.warn { color:var(--warn); }
+.ok { color:var(--ok); }
+.brush button { min-width:30px; padding:2px 5px; }
+.brush canvas { border:0; background:transparent; width:16px; height:16px; vertical-align:middle; }
+code { background:#2a2e37; padding:0 3px; border-radius:3px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Pico8 Deluxe Galaga – Level Editor</h1>
+  <button class="primary" id="open">Open cart …</button>
+  <button id="reopen" hidden>Reopen</button>
+  <input type="file" id="file" accept=".p8" hidden>
+  <button id="save" disabled>Save to cart</button>
+  <button id="bdir">Backup folder …</button>
+  <span class="info" id="cartinfo">no cart loaded</span>
+  <span class="info" id="bytes"></span>
+</header>
+<main>
+  <div>
+    <section>
+      <h2>Levels</h2>
+      <ul id="levels"></ul>
+      <div class="row">
+        <button id="lvAdd">new</button>
+        <button id="lvDup">copy</button>
+        <button id="lvDel">delete</button>
+        <button id="lvUp">▲</button>
+        <button id="lvDown">▼</button>
+      </div>
+      <div class="row"><label><input type="checkbox" id="bonus"> bonus stage</label></div>
+    </section>
+    <section>
+      <h2>Saving</h2>
+      <p class="hint" id="saveinfo"></p>
+      <p class="hint">Workflow: save in PICO-8 → edit here → save → <code>load dgalaga</code> in PICO-8. Saving in PICO-8 with an old cart in memory overwrites the levels.</p>
+      <p class="hint">Levels live in map rows 0–31. Do not paint there in the PICO-8 map editor.</p>
+    </section>
+  </div>
+
+  <div>
+    <section>
+      <div class="row">
+        <button id="play" class="primary">▶ Preview</button>
+        <button id="stop">■ Stop</button>
+        <label><input type="checkbox" id="sway" checked> sway</label>
+        <label><input type="checkbox" id="showSlots" checked> slots</label>
+        <span class="hint" id="time"></span>
+      </div>
+      <canvas id="cv" width="576" height="576"></canvas>
+      <p class="hint">White frame = visible screen (128×128), around it 32 px of the invisible margin. Drag the points of the selected stream: ● anchor, ○ control point. At the end of its path an alien flies to its slot (big aliens roam, bonus aliens leave). Bonus preview starts without the game's "bonus stage" wait.</p>
+    </section>
+  </div>
+
+  <div>
+    <section id="formSec">
+      <h2>Formation</h2>
+      <div class="row">
+        <span class="field"><label>columns</label><input type="number" id="cols" min="1" max="9"></span>
+        <span class="field"><label>rows</label><input type="number" id="rows" min="1" max="6"></span>
+      </div>
+      <div class="row">
+        <span class="field"><label>spacing x</label><input type="number" id="dx" min="8" max="30"></span>
+        <span class="field"><label>y</label><input type="number" id="dy" min="8" max="30"></span>
+        <span class="hint" id="swayinfo"></span>
+      </div>
+      <div class="row brush" id="kindBrush"></div>
+      <div class="row brush" id="streamBrush"></div>
+      <p class="hint">Pick a brush, click slots. Right click empties a slot. The number = stream; a stream fills its slots row by row from the top left. Each row is centered on its own (a row of 4 sits between a row of 5).</p>
+      <div id="grid"></div>
+    </section>
+    <section>
+      <h2>Streams</h2>
+      <div id="streams"></div>
+      <div class="row"><button id="stAdd">add stream</button></div>
+    </section>
+  </div>
+</main>
+
+<script>
+// ===================== CORE START =====================
+// cart text <-> data, level format (same as tools/levels.py):
+// map starts with "DG" + version 2, then per level:
+// len, type, cols, rows, dx, dy, slots (kind+16*stream),
+// streams: delay/4, gap, speed*16, kind, count, segments, points
+const PAL=['#000000','#1d2b53','#7e2553','#008751','#ab5236','#5f574f','#c2c3c7','#fff1e8',
+  '#ff004d','#ffa300','#ffec27','#00e436','#29adff','#83769c','#ff77a8','#ffccaa'];
+const MAGIC=[0x44,0x47], VERSION=2;
+
+function section(text,name){
+  const L=text.split('\n'); const i=L.indexOf('__'+name+'__');
+  if(i<0) return null;
+  const out=[]; for(let j=i+1;j<L.length && !L[j].startsWith('__');j++) out.push(L[j]);
+  return out;
+}
+
+// numbers and tables we need from the lua code
+function readConsts(text){
+  const lua=(section(text,'lua')||[]).join('\n');
+  const num=(n,d)=>{ const m=lua.match(new RegExp('^'+n+'=([-\\d.]+)(?:/([\\d.]+))?','m'));
+    return m? (m[2]? +m[1]/ +m[2] : +m[1]) : d; };
+  const c={form_dx:num('form_dx',14),form_dy:num('form_dy',12),form_top:num('form_top',14),
+    form_sway:num('form_sway',12),form_period:num('form_period',8),
+    back_spd:num('back_spd',1.2),back_turn:num('back_turn',0.02),
+    roam_spd:num('roam_spd',0.5),roam_bottom:num('roam_bottom',60)};
+  const km=lua.match(/kinds=\{([^}]*)\}/);
+  c.kinds=km? km[1].split(',').map(s=>s.trim().replace(/"/g,'')) : ['red','green','blue','bug'];
+  c.spr={}; c.size={}; c.rot={}; c.big={};
+  for(const k of c.kinds){
+    const m=lua.match(new RegExp('\\b'+k+'=\\{\\{(\\d+)[^\\n]*'));
+    if(m){ c.spr[k]=+m[1]; c.size[k]=/sz=2/.test(m[0])?2:1; }
+    const r=lua.match(new RegExp('\\b'+k+'=rot_tab\\((\\d+)\\)'));
+    if(r) c.rot[k]=+r[1];
+  }
+  const em=lua.match(/eshot=\{([\s\S]*?)\n\}/);
+  if(em) for(const m of em[1].matchAll(/(\w+)=\{s=/g)) c.big[m[1]]=true;
+  return c;
+}
+
+function readGfx(text){
+  const g=section(text,'gfx')||[];
+  const px=[]; for(let y=0;y<128;y++){ const l=g[y]||''; const r=[];
+    for(let x=0;x<128;x++) r.push(parseInt(l[x]||'0',16)); px.push(r); }
+  return px;
+}
+
+function readMapBytes(text){
+  const m=section(text,'map')||[]; const b=new Array(4096).fill(0);
+  for(let r=0;r<32 && r<m.length;r++) for(let x=0;x<128;x++){
+    const h=m[r].substr(x*2,2); if(h.length==2) b[r*128+x]=parseInt(h,16); }
+  return b;
+}
+
+// returns {levels, version}; version 1 = old format without header
+function decodeLevels(b,defDx=14,defDy=12){
+  const v2=b[0]==MAGIC[0]&&b[1]==MAGIC[1];
+  const lv=[]; let a=v2?3:0;
+  while(a<4096 && b[a]>0){
+    const end=a+b[a]; let p=a+1; const rd=()=>b[p++];
+    const L={bonus:rd()==1,cols:rd(),rows:rd(),dx:defDx,dy:defDy,grid:[],streams:[]};
+    if(v2){ L.dx=rd(); L.dy=rd(); }
+    for(let r=0;r<L.rows;r++){ const row=[]; for(let c=0;c<L.cols;c++){ const v=rd(); row.push({k:v%16,st:v>>4}); } L.grid.push(row); }
+    const ns=rd();
+    for(let i=0;i<ns;i++){
+      const s={delay:rd()*4,gap:rd(),speed:rd()/16,kind:rd(),count:rd(),pts:[]};
+      const m=rd(); for(let j=0;j<=3*m;j++) s.pts.push([rd()-64,rd()-64]);
+      L.streams.push(s);
+    }
+    // bonus levels keep a small grid for the editor
+    if(L.bonus && !L.rows){ L.cols=5; L.rows=3; L.grid=emptyGrid(5,3); }
+    lv.push(L); a=end;
+  }
+  return {levels:lv,version:v2?b[2]:(lv.length?1:0)};
+}
+function emptyGrid(c,r){ const g=[]; for(let y=0;y<r;y++){ const row=[]; for(let x=0;x<c;x++) row.push({k:0,st:1}); g.push(row); } return g; }
+
+function encodeLevel(L){
+  const o=[L.bonus?1:0, L.bonus?0:L.cols, L.bonus?0:L.rows, L.dx, L.dy];
+  if(!L.bonus) for(let r=0;r<L.rows;r++) for(let c=0;c<L.cols;c++){
+    const s=L.grid[r][c]; o.push(s.k? s.k+16*s.st : 0); }
+  o.push(L.streams.length);
+  for(const s of L.streams){
+    o.push(Math.min(255,Math.round(s.delay/4)), Math.min(255,Math.round(s.gap)),
+      Math.min(255,Math.max(1,Math.round(s.speed*16))), s.kind|0, s.count|0, (s.pts.length-1)/3);
+    for(const [x,y] of s.pts) o.push(clampC(x)+64, clampC(y)+64);
+  }
+  o.unshift(o.length+1);
+  return o;
+}
+const clampC=v=>Math.max(-64,Math.min(191,Math.round(v)));
+
+function encodeAll(levels){
+  let b=[...MAGIC,VERSION]; const sizes=[];
+  for(const L of levels){ const e=encodeLevel(L); sizes.push(e.length); b=b.concat(e); }
+  b.push(0);
+  return {bytes:b,sizes};
+}
+
+function writeMap(text,bytes){
+  const rows=Math.ceil(bytes.length/128);
+  const pad=bytes.concat(new Array(rows*128-bytes.length).fill(0));
+  const mrows=[]; for(let r=0;r<rows;r++) mrows.push(pad.slice(r*128,r*128+128).map(v=>v.toString(16).padStart(2,'0')).join(''));
+  const L=text.replace(/\n+$/,'').split('\n');
+  const i=L.indexOf('__map__');
+  if(i>=0){ let j=i+1; while(j<L.length && !L[j].startsWith('__')) j++;
+    const old=L.slice(i+1,j);
+    // our rows; old rows after ours up to row 31 become empty
+    const rest=old.slice(rows,32).map(r=>'0'.repeat(r.length));
+    L.splice(i+1,j-i-1,...mrows.concat(rest,old.slice(32))); }
+  else { let k=L.length; for(const n of ['__sfx__','__music__']){ const q=L.indexOf(n); if(q>=0) k=Math.min(k,q);} L.splice(k,0,'__map__',...mrows); }
+  return L.join('\n')+'\n';
+}
+
+// formation layout like the cart: each row centered on its own
+// first..last used slot, sway smaller for wide formations
+function layout(L,C){
+  const rc=[]; let lo=99,hi=-99;
+  for(let r=0;r<L.rows;r++){ let a0=99,a1=-99;
+    for(let c=0;c<L.cols;c++) if(L.grid[r][c].k){ a0=Math.min(a0,c); a1=Math.max(a1,c); }
+    rc[r]=(a0+a1)/2; lo=Math.min(lo,a0-rc[r]); hi=Math.max(hi,a1-rc[r]); }
+  const sway=Math.max(0,Math.min((120-(hi-lo)*L.dx)/2,C.form_sway));
+  return {rc,sway};
+}
+
+// pico-8 style angles: turns, y down
+const p8atan2=(dx,dy)=>((Math.atan2(-dy,dx)/(2*Math.PI))%1+1)%1;
+const p8cos=a=>Math.cos(2*Math.PI*a);
+const p8sin=a=>-Math.sin(2*Math.PI*a);
+
+function bez(q,i,u){
+  const a=q[3*i],b=q[3*i+1],c=q[3*i+2],d=q[3*i+3],v=1-u;
+  const f=k=>[v*v*v*a[k]+3*v*v*u*b[k]+3*v*u*u*c[k]+u*u*u*d[k],
+    3*v*v*(b[k]-a[k])+6*v*u*(c[k]-b[k])+3*u*u*(d[k]-c[k])];
+  const [x,dx]=f(0),[y,dy]=f(1); return [x,y,dx,dy];
+}
+// ===================== CORE END =====================
+
+if(typeof document!=='undefined'){
+// ===================== UI =====================
+const S=3, OFF=32;               // canvas scale, visible margin
+// points may lie in the margin around the screen
+const clampV=v=>Math.max(-OFF,Math.min(127+OFF,Math.round(v)));
+const SCOL=['','#ff5577','#33ddff','#88ff55'];
+const FS=!!window.showOpenFilePicker; // file system access (chrome, edge)
+const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+
+let cartText=null, cartName='', fileHandle=null, backupDir=null, C=readConsts(''), sprites={};
+let levels=[], cur=0, selStream=0, brushK=1, brushS=1;
+let drag=null, preview=null, undo=[], lay={rc:[],sway:0};
+
+const $=id=>document.getElementById(id);
+
+// ---------- remember handles (indexeddb) ----------
+function idb(){ return new Promise((res,rej)=>{ const r=indexedDB.open('pdg-editor',1);
+  r.onupgradeneeded=()=>r.result.createObjectStore('kv'); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+async function kvGet(k){ try{ const db=await idb(); return await new Promise(res=>{ const q=db.transaction('kv').objectStore('kv').get(k); q.onsuccess=()=>res(q.result); q.onerror=()=>res(undefined); }); }catch(e){ return undefined; } }
+async function kvSet(k,v){ try{ const db=await idb(); await new Promise(res=>{ const t=db.transaction('kv','readwrite'); t.objectStore('kv').put(v,k); t.oncomplete=res; t.onerror=res; }); }catch(e){} }
+async function perm(h){ if((await h.queryPermission({mode:'readwrite'}))==='granted') return true;
+  return (await h.requestPermission({mode:'readwrite'}))==='granted'; }
+
+// ---------- sprites ----------
+function buildSprites(px){
+  sprites={};
+  for(let n=0;n<256;n++){
+    const c=document.createElement('canvas'); c.width=c.height=8;
+    const x=c.getContext('2d'); const im=x.createImageData(8,8);
+    for(let y=0;y<8;y++) for(let i=0;i<8;i++){
+      const v=px[(n>>4)*8+y][(n&15)*8+i]; const o=(y*8+i)*4;
+      if(v){ const h=PAL[v]; im.data[o]=parseInt(h.substr(1,2),16); im.data[o+1]=parseInt(h.substr(3,2),16);
+        im.data[o+2]=parseInt(h.substr(5,2),16); im.data[o+3]=255; }
+    }
+    x.putImageData(im,0,0); sprites[n]=c;
+  }
+}
+function drawSpr(g,n,x,y,w,fx,fy,sc){ // x,y top-left in canvas px
+  if(!sprites[n]) return;
+  g.save(); g.imageSmoothingEnabled=false;
+  g.translate(x+(fx?w*8*sc:0),y+(fy?w*8*sc:0)); g.scale(fx?-1:1,fy?-1:1);
+  if(w==2){ for(const [dx,dy,k] of [[0,0,0],[8,0,1],[0,8,16],[8,8,17]]) g.drawImage(sprites[n+k],dx*sc,dy*sc,8*sc,8*sc); }
+  else g.drawImage(sprites[n],0,0,8*sc,8*sc);
+  g.restore();
+}
+// sprite and flips for a kind at angle a (like rot_tab in the cart)
+function kindImage(k,a){
+  const n=C.rot[k];
+  if(n===undefined || a===null) return [C.spr[k],false,false];
+  const t=[[n+3,0,0],[n+2,0,0],[n,0,0],[n+2,1,0],[n+3,1,0],[n+2,1,1],[n,0,1],[n+2,0,1]];
+  const e=t[Math.floor(a*8+0.5)%8]; return [e[0],!!e[1],!!e[2]];
+}
+function drawKind(k,x,y,a){ // world center
+  const w=C.size[k]||1; const [n,fx,fy]=kindImage(k,a);
+  drawSpr(ctx,n,(x-4*w+OFF)*S,(y-4*w+OFF)*S,w,fx,fy,S);
+}
+function kindIcon(k,px){ const c=document.createElement('canvas'); const w=C.size[k]||1;
+  c.width=c.height=16; drawSpr(c.getContext('2d'),C.spr[k],0,0,w,false,false,2/w);
+  if(px){ c.style.width=c.style.height=px+'px'; } return c; }
+
+// ---------- level helpers ----------
+const L=()=>levels[cur];
+function emptyLevel(){
+  return {bonus:false,cols:5,rows:3,dx:C.form_dx,dy:C.form_dy,grid:emptyGrid(5,3),streams:[newStream(0)]};
+}
+function newStream(i){
+  const x=[40,88,64][i%3];
+  return {delay:i*40,gap:8,speed:1.5,kind:1,count:8,pts:[[x,-12],[x,50],[x+(i%2?30:-30),90],[64,50]]};
+}
+function slotPos(c,r,t){
+  const sw=($('sway').checked&&t!==undefined)? p8sin(t/60/C.form_period)*lay.sway : 0;
+  return [64+(c-lay.rc[r])*L().dx+sw, C.form_top+r*L().dy];
+}
+function snapshot(){ undo.push(JSON.stringify(levels)); if(undo.length>100) undo.shift(); }
+
+// ---------- rendering ----------
+function render(){
+  ctx.imageSmoothingEnabled=false;
+  ctx.fillStyle='#0b0c10'; ctx.fillRect(0,0,cv.width,cv.height);
+  ctx.fillStyle='#000'; ctx.fillRect(OFF*S,OFF*S,128*S,128*S);
+  ctx.strokeStyle='#fff'; ctx.lineWidth=1; ctx.strokeRect(OFF*S-0.5,OFF*S-0.5,128*S+1,128*S+1);
+  if(!L()) return;
+  lay=layout(L(),C);
+  if($('showSlots').checked && !L().bonus && !preview){
+    for(let r=0;r<L().rows;r++) for(let c=0;c<L().cols;c++){
+      const s=L().grid[r][c]; if(!s.k) continue;
+      const k=C.kinds[s.k-1]; const [x,y]=slotPos(c,r);
+      ctx.globalAlpha=0.55; drawKind(k,x,y,null); ctx.globalAlpha=1;
+      ctx.fillStyle=SCOL[s.st]||'#fff'; ctx.fillRect((x+OFF)*S-2,(y+4+OFF)*S,4,4);
+    }
+  }
+  L().streams.forEach((s,i)=>{
+    const col=SCOL[i+1]; const sel=i==selStream && !preview;
+    ctx.strokeStyle=col; ctx.globalAlpha=sel?1:0.5; ctx.lineWidth=sel?2:1.5;
+    ctx.beginPath();
+    for(let g=0;g<(s.pts.length-1)/3;g++) for(let u=0;u<=1.0001;u+=0.02){
+      const [x,y]=bez(s.pts,g,Math.min(u,1)); const X=(x+OFF)*S,Y=(y+OFF)*S;
+      (g==0&&u==0)? ctx.moveTo(X,Y) : ctx.lineTo(X,Y);
+    }
+    ctx.stroke(); ctx.globalAlpha=1;
+    if(sel){
+      ctx.lineWidth=1; ctx.strokeStyle='#888';
+      for(let g=0;g<(s.pts.length-1)/3;g++){
+        const p=s.pts; ctx.beginPath();
+        ctx.moveTo((p[3*g][0]+OFF)*S,(p[3*g][1]+OFF)*S); ctx.lineTo((p[3*g+1][0]+OFF)*S,(p[3*g+1][1]+OFF)*S);
+        ctx.moveTo((p[3*g+3][0]+OFF)*S,(p[3*g+3][1]+OFF)*S); ctx.lineTo((p[3*g+2][0]+OFF)*S,(p[3*g+2][1]+OFF)*S);
+        ctx.stroke();
+      }
+      s.pts.forEach((p,j)=>{
+        const X=(p[0]+OFF)*S,Y=(p[1]+OFF)*S; ctx.beginPath(); ctx.arc(X,Y,j%3==0?6:5,0,7);
+        if(j%3==0){ ctx.fillStyle=col; ctx.fill(); } else { ctx.strokeStyle=col; ctx.lineWidth=2; ctx.stroke(); }
+      });
+    }
+  });
+  if(preview) for(const o of preview.ships) if(o.alive) drawKind(o.k,o.x,o.y,o.mode=='anim'?null:o.a);
+  $('time').textContent=preview? ('frame '+preview.t+'  ('+(preview.t/60).toFixed(1)+' s)') : '';
+}
+
+// ---------- preview simulation (like the cart) ----------
+function startPreview(){
+  const Lv=L(); const q=[];
+  Lv.streams.forEach((s,si)=>{
+    let j=0;
+    if(Lv.bonus){ for(let i=0;i<s.count;i++) q.push({t:s.delay+j++*s.gap,s,k:C.kinds[s.kind-1]||C.kinds[0]}); }
+    else for(let r=0;r<Lv.rows;r++) for(let c=0;c<Lv.cols;c++){
+      const g=Lv.grid[r][c]; if(g.k && g.st==si+1) q.push({t:s.delay+j++*s.gap,s,k:C.kinds[g.k-1],c,r});
+    }
+  });
+  preview={t:0,q,ships:[]};
+}
+function stepPreview(){
+  const P=preview; P.t++;
+  for(const q of P.q.slice()) if(P.t>=q.t){
+    const p0=q.s.pts[0];
+    P.ships.push({k:q.k,x:p0[0],y:p0[1],a:0.75,st:'enter',s:q.s,seg:0,u:0,c:q.c,r:q.r,alive:true,
+      mode:C.rot[q.k]!==undefined?'dir':'anim',v:0});
+    P.q.splice(P.q.indexOf(q),1);
+  }
+  for(const o of P.ships){
+    if(!o.alive) continue;
+    if(o.st=='enter'){
+      const [x,y,dx,dy]=bez(o.s.pts,o.seg,o.u); o.x=x; o.y=y;
+      if(dx||dy) o.a=p8atan2(dx,dy);
+      const ax=Math.abs(dx),ay=Math.abs(dy);
+      o.u+=o.s.speed/Math.max(1,Math.max(ax,ay)+Math.min(ax,ay)/2);
+      if(o.u>=1){ o.u-=1; o.seg++;
+        if(o.seg>=(o.s.pts.length-1)/3){
+          if(C.big[o.k]){ o.st='roam'; o.v=C.roam_spd; o.ta=o.a; o.rt=0; }
+          else if(o.c!==undefined){ o.st='back'; o.v=C.back_spd; }
+          else o.alive=false;
+        }
+      }
+    } else if(o.st=='back'){
+      const [sx,sy]=slotPos(o.c,o.r,P.t); const dx=sx-o.x,dy=sy-o.y,n=Math.abs(dx)+Math.abs(dy);
+      const tgt=n<12?0.25:p8atan2(dx,dy); const d=((tgt-o.a+0.5)%1+1)%1-0.5;
+      o.a+=Math.max(-C.back_turn,Math.min(C.back_turn,d));
+      if(n<12){ o.v=0; o.x+=dx*0.15; o.y+=dy*0.15; o.a+=Math.max(-0.04,Math.min(0.04,d)); }
+      if(n<1){ o.st='form'; o.mode='anim'; }
+    } else if(o.st=='form'){
+      [o.x,o.y]=slotPos(o.c,o.r,P.t);
+    } else if(o.st=='roam'){
+      if(--o.rt<=0){ o.rt=60+Math.random()*90; o.ta=Math.random(); }
+      if(o.x<12||o.x>116||o.y<10||o.y>C.roam_bottom) o.ta=p8atan2(64-o.x,34-o.y);
+      const d=((o.ta-o.a+0.5)%1+1)%1-0.5; o.a+=Math.max(-0.03,Math.min(0.03,d));
+    }
+    if(o.st!='enter'&&o.st!='form'){ o.x+=p8cos(o.a)*o.v; o.y+=p8sin(o.a)*o.v; }
+    o.a=((o.a%1)+1)%1;
+  }
+  if(P.q.length==0 && P.ships.every(o=>!o.alive||o.st=='form'||o.st=='roam') && P.t>60) P.done=(P.done||0)+1;
+  if(P.done>120) preview=null;
+}
+function loop(){ if(preview){ stepPreview(); } render(); requestAnimationFrame(loop); }
+
+// ---------- panels ----------
+function aliensOf(Lv){ return Lv.bonus? Lv.streams.reduce((a,s)=>a+s.count,0) : Lv.grid.flat().filter(s=>s.k).length; }
+function updateLevelList(){
+  const ul=$('levels'); ul.innerHTML='';
+  levels.forEach((Lv,i)=>{
+    const li=document.createElement('li'); if(i==cur) li.className='sel';
+    const n=Lv.streams.length;
+    li.innerHTML='Level '+(i+1)+'<span>'+(Lv.bonus?'bonus, ':'')+aliensOf(Lv)+' aliens, '+n+' stream'+(n==1?'':'s')+'</span>';
+    li.onclick=()=>{ cur=i; selStream=0; preview=null; refresh(); };
+    ul.appendChild(li);
+  });
+}
+function updateSettings(){
+  $('bonus').checked=L().bonus;
+  $('cols').value=L().cols; $('rows').value=L().rows; $('dx').value=L().dx; $('dy').value=L().dy;
+  $('formSec').style.display=L().bonus?'none':'';
+  lay=layout(L(),C);
+  $('swayinfo').textContent='sway ±'+Math.round(lay.sway)+' px';
+}
+function updateBrush(){
+  const kb=$('kindBrush'); kb.innerHTML='<label>kind</label>';
+  C.kinds.forEach((k,i)=>{ const b=document.createElement('button'); b.title=k;
+    if(cartText){ b.appendChild(kindIcon(k)); b.append(' '+k); } else b.textContent=k;
+    if(brushK==i+1) b.className='on'; b.onclick=()=>{ brushK=i+1; updateBrush(); }; kb.appendChild(b); });
+  const sb=$('streamBrush'); sb.innerHTML='<label>stream</label>';
+  for(let i=1;i<=3;i++){ const b=document.createElement('button'); b.textContent=i; b.style.color=SCOL[i];
+    if(brushS==i) b.className='on'; b.onclick=()=>{ brushS=i; updateBrush(); }; sb.appendChild(b); }
+}
+function updateGrid(){
+  const g=$('grid'); g.innerHTML=''; g.style.gridTemplateColumns='repeat('+L().cols+',30px)';
+  for(let r=0;r<L().rows;r++) for(let c=0;c<L().cols;c++){
+    const s=L().grid[r][c]; const d=document.createElement('div');
+    if(s.k){ d.style.borderColor=SCOL[s.st]; if(cartText) d.appendChild(kindIcon(C.kinds[s.k-1]));
+      const n=document.createElement('b'); n.textContent=s.st; n.style.color=SCOL[s.st]; d.appendChild(n); }
+    d.onclick=()=>{ snapshot(); s.k=brushK; s.st=brushS; refresh(); };
+    d.oncontextmenu=e=>{ e.preventDefault(); snapshot(); s.k=0; refresh(); };
+    g.appendChild(d);
+  }
+}
+function numInput(lbl,val,step,min,max,set){
+  const w=document.createElement('span'); w.className='field'; w.innerHTML='<label>'+lbl+'</label>';
+  const i=document.createElement('input'); i.type='number'; i.value=val; i.step=step; i.min=min; i.max=max;
+  i.onchange=()=>{ snapshot(); set(+i.value); refresh(); }; w.appendChild(i); return w;
+}
+function updateStreams(){
+  const box=$('streams'); box.innerHTML='';
+  L().streams.forEach((s,i)=>{
+    const d=document.createElement('div'); d.className='stream'; d.style.borderColor=SCOL[i+1];
+    const head=document.createElement('div'); head.className='row';
+    const sel=document.createElement('button'); sel.textContent='Stream '+(i+1); if(i==selStream) sel.className='on';
+    sel.onclick=()=>{ selStream=i; refresh(); }; head.appendChild(sel);
+    const n=L().bonus? s.count : L().grid.flat().filter(g=>g.k&&g.st==i+1).length;
+    const m=(s.pts.length-1)/3;
+    const info=document.createElement('span'); info.className='hint'; info.textContent=n+' aliens, '+m+' segment'+(m==1?'':'s');
+    head.appendChild(info); d.appendChild(head);
+    const r1=document.createElement('div'); r1.className='row';
+    r1.appendChild(numInput('start (frames)',s.delay,4,0,1020,v=>s.delay=Math.round(v/4)*4));
+    r1.appendChild(numInput('gap',s.gap,1,1,255,v=>s.gap=v));
+    r1.appendChild(numInput('speed',s.speed,0.0625,0.0625,8,v=>s.speed=Math.round(v*16)/16));
+    d.appendChild(r1);
+    if(L().bonus){
+      const r2=document.createElement('div'); r2.className='row';
+      const ks=document.createElement('select'); C.kinds.forEach((k,j)=>{ const o=document.createElement('option'); o.value=j+1; o.textContent=k; if(s.kind==j+1) o.selected=true; ks.appendChild(o); });
+      ks.onchange=()=>{ snapshot(); s.kind=+ks.value; refresh(); };
+      const w=document.createElement('span'); w.className='field'; w.innerHTML='<label>kind</label>'; w.appendChild(ks); r2.appendChild(w);
+      r2.appendChild(numInput('count',s.count,1,1,40,v=>s.count=v));
+      d.appendChild(r2);
+    }
+    const r3=document.createElement('div'); r3.className='row';
+    const add=document.createElement('button'); add.textContent='segment +';
+    add.onclick=()=>{ snapshot(); const p=s.pts, e=p[p.length-1], c=p[p.length-2];
+      const dx=e[0]-c[0], dy=e[1]-c[1];
+      p.push([e[0]+dx,e[1]+dy],[e[0]+2*dx+20,e[1]+2*dy],[e[0]+2*dx+20,e[1]+2*dy+20]); selStream=i; refresh(); };
+    const rem=document.createElement('button'); rem.textContent='segment −';
+    rem.onclick=()=>{ if(s.pts.length>4){ snapshot(); s.pts.splice(-3,3); refresh(); } };
+    const mir=document.createElement('button'); mir.textContent='mirror';
+    mir.onclick=()=>{ snapshot(); s.pts=s.pts.map(([x,y])=>[127-x,y]); refresh(); };
+    const del=document.createElement('button'); del.textContent='delete';
+    del.onclick=()=>{ if(L().streams.length>1){ snapshot(); L().streams.splice(i,1);
+      L().grid.flat().forEach(g=>{ if(g.st==i+1) g.st=1; else if(g.st>i+1) g.st--; });
+      selStream=0; refresh(); } };
+    r3.append(add,rem,mir,del); d.appendChild(r3);
+    box.appendChild(d);
+  });
+  $('stAdd').disabled=L().streams.length>=3;
+}
+function updateBytes(){
+  const {bytes,sizes}=encodeAll(levels);
+  const big=sizes.map((n,i)=>n>255?'level '+(i+1):null).filter(Boolean);
+  $('bytes').innerHTML=bytes.length+' of 4096 bytes'+(big.length?' <span class="warn">– too big: '+big.join(', ')+' (max. 255)</span>':'')
+    +(bytes.length>4096?' <span class="warn">– map full!</span>':'');
+  $('save').disabled=!cartText||big.length>0||bytes.length>4096;
+}
+function updateSaveInfo(){
+  const t=[];
+  if(!FS) t.push('<span class="warn">This browser cannot write files: saving downloads the cart (use Chrome/Edge to save in place).</span>');
+  else t.push(fileHandle? 'Saves in place: <b>'+cartName+'</b>' : 'Open a cart to save in place.');
+  if(FS) t.push(backupDir? 'Backups go to folder <b>'+backupDir.name+'</b> (numbered).' : '<span class="warn">No backup folder chosen.</span>');
+  $('saveinfo').innerHTML=t.join('<br>');
+  $('bdir').hidden=!FS;
+}
+function refresh(){ updateLevelList(); updateSettings(); updateBrush(); if(!L().bonus) updateGrid(); updateStreams(); updateBytes(); updateSaveInfo(); }
+
+// ---------- level settings ----------
+$('bonus').onchange=e=>{ snapshot(); L().bonus=e.target.checked; refresh(); };
+function resize(){
+  snapshot(); const c=Math.max(1,Math.min(9,+$('cols').value)), r=Math.max(1,Math.min(6,+$('rows').value));
+  const g=[]; for(let y=0;y<r;y++){ const row=[]; for(let x=0;x<c;x++) row.push((L().grid[y]&&L().grid[y][x])||{k:0,st:1}); g.push(row); }
+  L().cols=c; L().rows=r; L().grid=g; refresh();
+}
+$('cols').onchange=resize; $('rows').onchange=resize;
+$('dx').onchange=()=>{ snapshot(); L().dx=Math.max(8,Math.min(30,+$('dx').value)); refresh(); };
+$('dy').onchange=()=>{ snapshot(); L().dy=Math.max(8,Math.min(30,+$('dy').value)); refresh(); };
+$('lvAdd').onclick=()=>{ snapshot(); levels.splice(cur+1,0,emptyLevel()); cur++; refresh(); };
+$('lvDup').onclick=()=>{ snapshot(); levels.splice(cur+1,0,JSON.parse(JSON.stringify(L()))); cur++; refresh(); };
+$('lvDel').onclick=()=>{ if(levels.length>1){ snapshot(); levels.splice(cur,1); cur=Math.min(cur,levels.length-1); refresh(); } };
+$('lvUp').onclick=()=>{ if(cur>0){ snapshot(); [levels[cur-1],levels[cur]]=[levels[cur],levels[cur-1]]; cur--; refresh(); } };
+$('lvDown').onclick=()=>{ if(cur<levels.length-1){ snapshot(); [levels[cur+1],levels[cur]]=[levels[cur],levels[cur+1]]; cur++; refresh(); } };
+$('stAdd').onclick=()=>{ if(L().streams.length<3){ snapshot(); L().streams.push(newStream(L().streams.length)); selStream=L().streams.length-1; refresh(); } };
+$('play').onclick=()=>startPreview();
+$('stop').onclick=()=>{ preview=null; };
+document.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key=='z'&&undo.length&&e.target.tagName!='INPUT'){ e.preventDefault(); levels=JSON.parse(undo.pop()); cur=Math.min(cur,levels.length-1); refresh(); }
+});
+
+// ---------- dragging points ----------
+function worldPos(e){ const r=cv.getBoundingClientRect(); const k=cv.width/r.width;
+  return [(e.clientX-r.left)*k/S-OFF,(e.clientY-r.top)*k/S-OFF]; }
+cv.onmousedown=e=>{
+  if(preview||!L()) return; const [x,y]=worldPos(e);
+  const order=[selStream,...L().streams.map((_,i)=>i).filter(i=>i!=selStream)];
+  for(const si of order){ const pts=L().streams[si].pts;
+    for(let j=0;j<pts.length;j++) if(Math.hypot(pts[j][0]-x,pts[j][1]-y)<3.5){
+      snapshot(); selStream=si; drag={si,j}; refresh(); return; } }
+};
+cv.onmousemove=e=>{
+  if(!drag) return; const [x,y]=worldPos(e); const pts=L().streams[drag.si].pts;
+  const nx=clampV(x), ny=clampV(y), dx=nx-pts[drag.j][0], dy=ny-pts[drag.j][1];
+  pts[drag.j]=[nx,ny];
+  // an anchor takes its control points along
+  if(drag.j%3==0){ if(drag.j>0) pts[drag.j-1]=[clampV(pts[drag.j-1][0]+dx),clampV(pts[drag.j-1][1]+dy)];
+    if(drag.j<pts.length-1) pts[drag.j+1]=[clampV(pts[drag.j+1][0]+dx),clampV(pts[drag.j+1][1]+dy)]; }
+};
+window.onmouseup=()=>{ if(drag){ drag=null; updateBytes(); } };
+
+// ---------- open / save ----------
+function loadText(text,name){
+  cartText=text; cartName=name; C=readConsts(text); buildSprites(readGfx(text));
+  const d=decodeLevels(readMapBytes(text),C.form_dx,C.form_dy);
+  levels=d.levels; if(!levels.length) levels=[emptyLevel()];
+  cur=0; selStream=0; undo=[]; preview=null;
+  $('cartinfo').innerHTML=name+' – '+levels.length+' levels'
+    +(d.version==1?' <span class="warn">(old format, converted on save)</span>':'');
+  refresh();
+}
+async function openHandle(h){
+  fileHandle=h; const f=await h.getFile(); loadText(await f.text(),f.name);
+  await kvSet('cart',h); $('reopen').hidden=true;
+}
+$('open').onclick=async()=>{
+  if(FS){ try{
+    // start in the folder of the last cart (chrome also remembers per id)
+    const last=fileHandle||await kvGet('cart');
+    const o={id:'pdg-cart',types:[{description:'PICO-8 cart',accept:{'text/plain':['.p8']}}]};
+    if(last) o.startIn=last;
+    const [h]=await showOpenFilePicker(o); await openHandle(h); }catch(e){} }
+  else $('file').click();
+};
+$('reopen').onclick=async()=>{ const h=await kvGet('cart'); if(h && await perm(h)) await openHandle(h); };
+$('file').onchange=async e=>{ const f=e.target.files[0]; if(f){ fileHandle=null; loadText(await f.text(),f.name); } };
+$('bdir').onclick=async()=>{ try{
+  const o={id:'pdg-backup',mode:'readwrite'}; if(backupDir) o.startIn=backupDir;
+  backupDir=await showDirectoryPicker(o); await kvSet('backup',backupDir); updateSaveInfo(); }catch(e){} };
+
+// next free number: <name>_001.p8, _002, ...
+async function writeBackup(text){
+  if(!backupDir || !(await perm(backupDir))) return null;
+  const base=cartName.replace(/\.p8$/,''); let n=0;
+  for await (const [fn] of backupDir.entries()){
+    const m=fn.match(new RegExp('^'+base+'_(\\d+)\\.p8$')); if(m) n=Math.max(n,+m[1]); }
+  const fn=base+'_'+String(n+1).padStart(3,'0')+'.p8';
+  const w=await (await backupDir.getFileHandle(fn,{create:true})).createWritable();
+  await w.write(text); await w.close(); return fn;
+}
+$('save').onclick=async()=>{
+  const {bytes}=encodeAll(levels);
+  if(fileHandle){
+    if(!(await perm(fileHandle))) return;
+    // read the cart again: keep code/gfx changes made meanwhile
+    const now=await (await fileHandle.getFile()).text();
+    const bk=await writeBackup(now);
+    const out=writeMap(now,bytes);
+    const w=await fileHandle.createWritable(); await w.write(out); await w.close();
+    cartText=out; C=readConsts(out);
+    $('cartinfo').innerHTML='<span class="ok">saved</span> '+cartName+(bk?' (backup '+bk+')':'')+' – in PICO-8: <code>load '+cartName.replace(/\.p8$/,'')+'</code>';
+  } else {
+    const out=writeMap(cartText,bytes);
+    const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([out],{type:'text/plain'}));
+    a.download=cartName||'dgalaga.p8'; a.click();
+    $('cartinfo').textContent=cartName+' downloaded – move it to the carts folder, then load it in PICO-8';
+  }
+};
+
+(async()=>{
+  levels=[emptyLevel()]; refresh(); loop();
+  if(FS){
+    backupDir=await kvGet('backup')||null;
+    const h=await kvGet('cart'); if(h){ $('reopen').hidden=false; $('reopen').textContent='Reopen '+h.name; }
+    updateSaveInfo();
+  }
+})();
+}
+</script>
+</body>
+</html>
