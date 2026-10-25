@@ -12,6 +12,11 @@ __lua__
 -- settings
 
 p={x=64-4, y=118, w=1} -- w: weapon
+dead_time=90    -- frames until the
+                -- ship comes back
+inv_time=120    -- frames blinking,
+                -- cannot be hit
+ship_r=3        -- hit box half size
 s={}
 ns=100
 e={}
@@ -23,7 +28,13 @@ shot_max=3     -- shots in magazine
                -- (extras: more)
 reload_time=20 -- frames per shot
 shot_spd=3     -- px/frame
-pb={} -- enemy plasma balls
+pb={} -- projectiles of big enemies
+-- per big kind: sprite, speed,
+-- aimed at the ship?, trail
+-- colors (bright,dark; nil=none)
+eshot={
+	bug={s=51,v=1,aim=true,c1=11,c2=3},
+}
 pt={} -- particles
 eb={} -- enemy bullets
 eshot_spd=1.5   -- px/frame
@@ -44,11 +55,12 @@ dive_every=120  -- frames between
 wave={1,1,2,2,3,3} -- divers per
                 -- wave, repeats
 dive_spd=1      -- px/frame
-dive_pre=15     -- frames down
-                -- before the spin
+spin_spd=0.5    -- px/frame while
+                -- spinning out
 dive_spin=1/30  -- turns/frame
-dive_turns=2    -- spins, then stop
-                -- (+0..2 random)
+dive_turns=1    -- spins (+0..0.5)
+loop_chance=0.5 -- chance of a loop
+loop_r=18       -- loop radius px
 back_spd=1.2    -- px/frame home
 back_turn=0.02  -- max turn/frame
 
@@ -73,7 +85,7 @@ flash_time=4    -- frames white
 boom_spd=4
 -- particle colors per kind
 -- {bright,dark}
-col={red={8,2},green={11,3},
+col={ship={7,12},red={8,2},green={11,3},
 	blue={12,1},bug={14,2}}
 fx={} -- running explosions
 
@@ -102,6 +114,7 @@ function _init()
 	score=0
 	hiscore=0
 	lives=3
+	p.dead,p.inv=0,0
 	ammo=shot_max
 	reload=0
 	reloading=false
@@ -144,6 +157,18 @@ function game()
 	local til=0
 	cls(0)
 	stars()
+	-- ship destroyed: wait, then
+	-- back (or game over)
+	if p.dead>0 then
+		p.dead-=1
+		if p.dead==0 then
+			if lives==0 then
+				_update60=over
+				return
+			end
+			p.x,p.inv=60,inv_time
+		end
+	else
 	if(btn(⬅️)) then
 	 p.x=p.x-1	--and > 0
 	 til=-1
@@ -160,6 +185,7 @@ function game()
 		shoot(p.w)
 		ammo-=1
 	end
+	end -- ship alive
 	-- empty: reload one shot every
 	-- reload_time frames until full
 	if (ammo==0) reloading=true
@@ -175,8 +201,26 @@ function game()
  plasma()
  ebullets()
 	bullets()
-	spr(19+til,p.x,p.y)
+	if p.dead==0 then
+		if p.inv>0 then
+			p.inv-=1
+		elseif ship_hit() then
+			die()
+		end
+		-- blink while invulnerable
+		if (p.dead==0 and p.inv%8<4) spr(19+til,p.x,p.y)
+	end
 	hud()
+end
+
+function over()
+	cls(0)
+	stars()
+	print("game over",46,56,8)
+	local t="score "..score
+	print(t,64-#t*2,66,7)
+	-- restart the cart
+	if (btnp(❎)) run()
 end
 -->8
 -- ====== objects ======
@@ -279,24 +323,38 @@ function bug_move(o)
 	o.y=24+sin(t()/1.5)*2
 	o.cool-=1
 	if o.cool<=0 then
-		add(pb,{x=o.x,y=o.y+6})
+		big_shot(o)
 		o.cool=40+rnd(60)
 	end
 end
 
--- plasma balls fall down,
--- gone at the bottom. they shed
--- green particles
+-- big enemy fires its own
+-- projectile, aimed at the ship
+-- (where it is now) or down
+function big_shot(o)
+	local w=eshot[o.k]
+	local a=0.75
+	if (w.aim) a=atan2(p.x+4-o.x,p.y+4-o.y)
+	add(pb,{x=o.x,y=o.y+6,s=w.s,
+		dx=cos(a)*w.v,dy=sin(a)*w.v,
+		c1=w.c1,c2=w.c2})
+end
+
+-- projectiles of big enemies fly
+-- straight, gone outside the
+-- screen. they may shed particles
+-- (acid), left behind them
 function plasma()
 	for k in all(pb) do
-		k.y+=1
-		if rnd()<0.5 then
-			add(pt,{x=k.x-3+rnd(3),y=k.y-2,
+		k.x+=k.dx
+		k.y+=k.dy
+		if k.c1 and rnd()<0.5 then
+			add(pt,{x=k.x-3+rnd(3)-k.dx*2,y=k.y-k.dy*2,
 				dx=rnd(0.4)-0.2,dy=-rnd(0.3),
-				l=trail_life,ml=trail_life,c1=11,c2=3})
+				l=trail_life,ml=trail_life,c1=k.c1,c2=k.c2})
 		end
-		spr(51,k.x-4,k.y-4)
-		if (k.y>132) del(pb,k)
+		spr(k.s,k.x-4,k.y-4)
+		if (k.y>132 or k.x<-8 or k.x>136) del(pb,k)
 	end
 	parts()
 	booms()
@@ -342,18 +400,13 @@ function start_dive()
 	for i=1,min(wave[wave_n],#f) do
 		local o=rnd(f)
 		del(f,o)
-		-- first straight down, then
-		-- the spin (see form_move)
-		o.st,o.mode="dive","dir"
-		o.pre=dive_pre
-		o.a,o.v,o.rate=0.75,dive_spd,dive_spin
-		-- how far it spins (turns)
-		o.spin=dive_turns+rnd(2)
-		-- arc to the left or right
-		o.curve=rnd({-1,1})*0.002
-		-- shot when leaving the
-		-- formation
-		eshoot(o)
+		-- spins out of the formation,
+		-- phases: see form_move
+		o.st,o.ph,o.mode="dive","spin","spin"
+		o.a,o.v,o.rate=0.75,spin_spd,dive_spin
+		o.spin=dive_turns+rnd(0.5)
+		o.curve,o.burst=0,0
+		o.loop=rnd()<loop_chance
 	end
 end
 
@@ -366,26 +419,35 @@ function form_move(o)
 	if o.st=="form" then
 		o.x,o.y=slot(o)
 	elseif o.st=="dive" then
-		-- spun enough: image points
-		-- where it flies again
-		-- 1. straight down, no shots
-		if o.pre>0 then
-			o.pre-=1
-			if (o.pre<=0) o.mode="spin"
-		-- 2. spin, no shots
-		elseif o.mode=="spin" then
+		-- 1. spin out, slowly
+		if o.ph=="spin" then
 			o.spin-=o.rate
-			-- spin over: sink and shoot
-			-- right away
 			if o.spin<=0 then
-				o.mode="dir"
-				o.cool=0
+				-- 2. dive down towards the
+				-- ship's side, fire
+				o.ph,o.mode="down","dir"
+				o.a=0.75+sgn(p.x+4-o.x)*(0.03+rnd(0.07))
+				o.v=dive_spd
+				eshoot(o)
 			end
-		-- 3. sinking: shoot while above
-		-- the ship
-		elseif o.y<p.y then
-			o.cool-=1
-			if (o.cool<=0) eshoot(o)
+		else
+			-- shoot while above the ship
+			if o.y<p.y then
+				o.cool-=1
+				if (o.cool<=0) eshoot(o)
+			end
+			-- 3. maybe a loop in the
+			-- lower two thirds
+			if o.ph=="down" and o.loop and o.y>48 and o.x>40 and o.x<88 then
+				o.ph,o.loop="loop",false
+				-- turns per frame for radius
+				o.curve=rnd({-1,1})*o.v/(6.28*loop_r)
+				o.lp=1
+			elseif o.ph=="loop" then
+				o.lp-=abs(o.curve)
+				-- full circle: dive on
+				if (o.lp<=0) o.ph,o.curve="down",0
+			end
 		end
 		-- salvo running: next shot
 		if o.burst>0 and o.y<p.y then
@@ -422,6 +484,34 @@ function form_move(o)
 			o.st,o.mode="form","anim"
 		end
 	end
+end
+
+-- is the ship hit by an enemy
+-- bullet or acid?
+function ship_hit()
+	local cx,cy=p.x+4,p.y+4
+	for q in all(eb) do
+		if abs(q.x-1-cx)<ship_r+1 and abs(q.y-cy)<ship_r+1 then
+			del(eb,q)
+			return true
+		end
+	end
+	for k in all(pb) do
+		if abs(k.x-cx)<ship_r+2 and abs(k.y-cy)<ship_r+2 then
+			del(pb,k)
+			return true
+		end
+	end
+	-- touching an enemy does
+	-- nothing (like the original)
+	return false
+end
+
+-- ship explodes, one life less
+function die()
+	lives-=1
+	boom({x=p.x+4,y=p.y+4,an={},k="ship"})
+	p.dead=dead_time
 end
 
 -- start a salvo of 1..salvo_max

@@ -75,12 +75,20 @@ der neueren Amigas (A1200/A4000).
   schießen wie im Original nur senkrecht nach unten, in Salven von 1–3
   Schüssen: beim Abtauchen und nach dem Kreisel im Sinkflug – bis knapp
   über das eigene Schiff. Ausweichen ist Pflicht (Treffer folgen noch).
+- **Treffer auf das eigene Schiff** durch Schüsse und Säure: Explosion,
+  ein Leben weniger, danach kurz blinkend unverwundbar; bei 0 Leben
+  „game over“. Berührungen mit Aliens schaden nicht – wie im Original.
+- **Große Gegner** schießen gezielt auf das Schiff, jeder mit eigenem Projektil
+- **Sturzflug:** kreiselnd aus der Formation, schräg nach unten feuernd,
+  manchmal mit Kreis im unteren Bildteil
 - Lebensanzeige oben rechts (Punkte und Highscore kommen zwischen den Leveln)
 
 ## Geplant
 
 - Einflug der Formation, Angriffe auf den Spieler
-- Treffer auf das eigene Schiff, Punkte- und Highscore-Anzeige zwischen den Leveln
+- Level-Daten in der Map, Einflug der Formation in Strömen auf Bézierbahnen
+- Levelübergang mit Punkte- und Highscore-Anzeige, Bonusrunden
+- Level-Editor als Webseite
 - Extras (mehr Schüsse, Waffen)
 - Level und Übergänge
 - Meteoritensturm
