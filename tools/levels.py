@@ -6,7 +6,8 @@ Usage:  python3 tools/levels.py dgalaga.p8
 
 Map starts with "DG" and the format version (2), then per level:
   len (whole level incl. this byte; 0 = end of list)
-  type (0 normal, 1 bonus)
+  type (0 normal, 1 bonus, 2 kamikaze)
+  kamikaze: only kind, waves (the rest is fixed in the game)
   cols, rows, col spacing px, row spacing px
   per slot (row by row): kind + 16*stream   (kind 0 = empty)
   number of streams
@@ -78,6 +79,10 @@ def coord(v):
 
 
 def encode(lv):
+    if lv.get('kami'):
+        # {'kami': 'green', 'waves': 5}
+        out = [2, KIND_NAME[lv['kami']], lv.get('waves', 5)]
+        return [len(out) + 1] + out
     out = [1 if lv.get('bonus') else 0]
     grid = lv.get('grid', [])
     strm = lv.get('stream', [])

@@ -10,6 +10,7 @@ __lua__
  -- object class 
  	
 -- settings
+dbg_start = 1 --startlevel
 
 p={x=64-4, y=118, w=1} -- w: weapon
 dead_time=90    -- frames until the
@@ -59,6 +60,25 @@ between_time=150 -- frames of the
 bonus_msg=180   -- frames "bonus
                 -- stage" blinks,
                 -- then the ships come
+-- kamikaze level: waves of kami_n
+-- aliens dive side by side from
+-- the top (left to right), brake
+-- at the bottom, fly back up. next
+-- wave when this one is gone
+kami_wait=60    -- frames at start
+kami_n=5        -- aliens per wave
+kami_gap=40     -- pause frames
+                -- between waves
+kami_dx=2      -- px side by side
+kami_dy=2       -- px higher each
+                -- (slanted line)
+kami_spd=1.5    -- px/frame
+kami_low=85     -- y where they brake
+                -- (turn ~25 px lower)
+kami_brake=0.05 -- slow down/frame
+kami_fan=0.08   -- sideways spread
+kami_cool=20    -- frames between
+                -- shots (+random)
 end_wait=90     -- frames the level
                 -- goes on after the
                 -- last enemy (and no
@@ -157,7 +177,7 @@ function _init()
 	-- rotation: 8 directions per kind
 	rot={green=rot_tab(144),
 		red=rot_tab(128),blue=rot_tab(160)}
-	stage=0
+	stage=dbg_start-1
 	start_level()
 	_update60=title
 end
@@ -446,6 +466,8 @@ function form_move(o)
 		o.x,o.y=slot(o)
 	elseif o.st=="roam" then
 		roam(o)
+	elseif o.st=="kami" then
+		kami_move(o)
 	elseif o.st=="enter" then
 		fly_path(o)
 	elseif o.st=="dive" then
@@ -686,6 +708,7 @@ end
 -- bonus), segments, points x+64,
 -- y+64 (start + 3 per segment)
 
+-- type 2 (kamikaze): kind, waves
 -- read level n (after the last:
 -- start again with level 1)
 function load_level(n)
@@ -698,7 +721,21 @@ function load_level(n)
 		a+=1
 		return peek(a)
 	end
-	local l={bonus=rd()==1,c=rd(),r=rd(),
+	local ty=rd()
+	-- kamikaze: kind and waves,
+	-- the rest is fixed (settings)
+	if ty==2 then
+		local l={kami=true,q={},t=0,hits=0,done=0,k=kinds[rd()]}
+		-- one entry per wave: center x,
+		-- from left to right
+		local w,m=rd(),(kami_n-1)/2*kami_dx+12
+		for i=0,w-1 do
+			add(l.q,{x=m+i*(128-2*m)/max(1,w-1)})
+		end
+		l.n=w*kami_n
+		return l
+	end
+	local l={bonus=ty==1,c=rd(),r=rd(),
 		dx=rd(),dy=rd(),rc={},
 		slots={},q={},t=0,hits=0,n=0,done=0}
 	-- each row centered on its own
@@ -757,6 +794,7 @@ end
 -- has come, at the path start
 function spawn()
 	lev.t+=1
+	if (lev.kami) return kami_wave()
 	for q in all(lev.q) do
 		if lev.t>=q.t then
 			local pt0=q.st.pts[1]
@@ -850,6 +888,48 @@ function roam(o)
 	end
 end
 
+-- kamikaze: next wave when the
+-- last one is gone (shot or out),
+-- after a pause
+function kami_wave()
+	if #e>0 or #lev.q==0 then
+		lev.wait=nil
+		return
+	end
+	lev.wait=lev.wait or lev.t+(#lev.q*kami_n==lev.n and kami_wait or kami_gap)
+	if (lev.t<lev.wait) return
+	local q=deli(lev.q,1)
+	for j=0,kami_n-1 do
+		local m=j-(kami_n-1)/2
+		local o=obj_new(lev.k,q.x+m*kami_dx,-8-j*kami_dy,
+			rot[lev.k] and "dir" or "anim")
+		o.st,o.vx,o.vy,o.bonus="kami",m*kami_fan,kami_spd,true
+		o.cool=rnd(kami_cool)
+		add(e,o)
+	end
+end
+
+-- kamikaze: dive, fanning out a
+-- little, brake at the bottom and
+-- fly back up. shoots a lot
+function kami_move(o)
+	if (o.y>=kami_low) o.up=true
+	if o.up then
+		o.vy=max(o.vy-kami_brake,-kami_spd)
+		o.vx*=0.95
+	end
+	o.x+=o.vx
+	o.y+=o.vy
+	o.a=atan2(o.vx,o.vy)
+	o.cool-=1
+	if o.cool<=0 and o.y<p.y-8 then
+		add(eb,{x=o.x,y=o.y+4,dx=0,dy=eshot_spd})
+		o.cool=kami_cool+rnd(kami_cool)
+	end
+	-- out at the top: gone
+	if (o.up and o.y<-12) del(e,o)
+end
+
 -- screen between levels
 function between()
 	cls(0)
@@ -858,7 +938,7 @@ function between()
 		print(t,64-#t*2,y,c)
 	end
 	mid_print("stage "..stage,40,10)
-	if (lev.bonus) mid_print("hits "..lev.hits.." of "..lev.n,52,11)
+	if (lev.bonus or lev.kami) mid_print("hits "..lev.hits.." of "..lev.n,52,11)
 	mid_print("score "..score,64,7)
 	mid_print("hi "..hiscore,74,6)
 	bt-=1
@@ -1095,5 +1175,6 @@ __label__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 
 __map__
-4447023b0008030b0c121212122222222212121212222222221212121222222222020008180000017034708646a058720a08180000018f348f86b9a0a772520007030e0c0011113421210012121232222222131313332323230300071a000002345e725486a868a04a985072686c00071a000002cb5e8d5479a897a0b598af72
-976c0f0e13000001802c804a805e8072230100000e0c02000a1801080134547cbc862ccc7c190a18020801cc5e7cc6722c34860000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+44470247000c03090b120012001200002200220022001200120012220022002200120012001200002200220022020008180000015438548a62a37475000818000001ad38ad8a9ba389755f000c040a0c121212120000000022222222120000120012220022000022120000120000000022000022001212000000000000222200
+0200071a00000264326566618e72897d867b7b7c6a00071a0000029b329a669e8e8d898286847b836a61000504150c1222543242122200324212220032421222003242050008180108015736574c576c5884000818010801a836a84ca86ca7840008180108016a396a4f6a796b8e0008180108019539954f9579948e08081801
+0801812b75388b557d6e040202053b0008030b0c121212122222222212121212222222221212121222222222020008180000017034708646a058720a08180000018f348f86b9a0a77200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000

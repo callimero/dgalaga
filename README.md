@@ -89,10 +89,12 @@ der neueren Amigas (A1200/A4000).
 - **Sturzflug:** kreiselnd aus der Formation, schräg nach unten feuernd,
   manchmal mit Kreis im unteren Bildteil
 - **Level** liegen als Daten in der Map der Cart (kostet keinen Code):
-  Formation, bis zu 3 Ströme auf Bézierbahnen, auf denen die Aliens
+  Formation, bis zu 5 Ströme auf Bézierbahnen, auf denen die Aliens
   einfliegen und sich in ihre Plätze aufteilen. Große Aliens wandern frei
   in der oberen Hälfte, wechseln die Richtung und stoßen vor.
 - **Bonusrunden** („bonus stage“ blinkt): Aliens kreuzen ohne zu schießen
+- **Kamikaze-Level:** Wellen von Aliens stürzen nebeneinander von oben
+  herab, feuern heftig, wenden unten und fliegen wieder hinaus
 - **Levelübergang** mit Stage, Punkten und Highscore; nach dem letzten
   Abschuss läuft das Level noch kurz weiter
 - Lebensanzeige oben rechts (Punkte und Highscore kommen zwischen den Leveln)

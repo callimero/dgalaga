@@ -34,8 +34,8 @@ section h2 { font-size:14px; margin:0 0 8px; color:var(--akz); }
 #levels li span { color:var(--dim); font-size:12px; }
 canvas { image-rendering:pixelated; display:block; background:#000; border:1px solid var(--line); max-width:100%; }
 #grid { display:grid; gap:2px; margin-top:6px; }
-#grid div { width:30px; height:30px; background:#000; border:2px solid #333; display:flex; align-items:center; justify-content:center; cursor:pointer; position:relative; }
-#grid div canvas { border:0; background:transparent; width:24px; height:24px; }
+#grid div { width:var(--cell); height:var(--cell); background:#000; border:2px solid #333; display:flex; align-items:center; justify-content:center; cursor:pointer; position:relative; }
+#grid div canvas { border:0; background:transparent; width:calc(var(--cell) - 6px); height:calc(var(--cell) - 6px); }
 #grid div b { position:absolute; right:1px; bottom:-1px; font-size:10px; }
 .stream { border-left:4px solid; padding-left:8px; margin:8px 0; }
 .hint { color:var(--dim); font-size:12px; margin:6px 0; }
@@ -69,7 +69,15 @@ code { background:#2a2e37; padding:0 3px; border-radius:3px; }
         <button id="lvUp">▲</button>
         <button id="lvDown">▼</button>
       </div>
-      <div class="row"><label><input type="checkbox" id="bonus"> bonus stage</label></div>
+      <div class="row"><span class="field"><label>type</label>
+        <select id="ltype"><option value="0">normal</option><option value="1">bonus stage</option><option value="2">kamikaze</option></select></span></div>
+      <div id="kamiBox">
+        <div class="row brush" id="kkind"></div>
+        <div class="row">
+          <span class="field"><label>waves</label><input type="number" id="kwaves" min="1" max="8"></span>
+        </div>
+        <p class="hint">Waves of aliens dive side by side from the top, left to right, brake at the bottom and fly back up. The next wave comes when the last one is gone. Timing and speed are fixed in the game (<code>kami_*</code> settings).</p>
+      </div>
     </section>
     <section>
       <h2>Saving</h2>
@@ -97,7 +105,7 @@ code { background:#2a2e37; padding:0 3px; border-radius:3px; }
     <section id="formSec">
       <h2>Formation</h2>
       <div class="row">
-        <span class="field"><label>columns</label><input type="number" id="cols" min="1" max="9"></span>
+        <span class="field"><label>columns</label><input type="number" id="cols" min="1" max="14"></span>
         <span class="field"><label>rows</label><input type="number" id="rows" min="1" max="6"></span>
       </div>
       <div class="row">
@@ -110,7 +118,7 @@ code { background:#2a2e37; padding:0 3px; border-radius:3px; }
       <p class="hint">Pick a brush, click slots. Right click empties a slot. The number = stream; a stream fills its slots row by row from the top left. Each row is centered on its own (a row of 4 sits between a row of 5).</p>
       <div id="grid"></div>
     </section>
-    <section>
+    <section id="stSec">
       <h2>Streams</h2>
       <div id="streams"></div>
       <div class="row"><button id="stAdd">add stream</button></div>
@@ -143,7 +151,10 @@ function readConsts(text){
   const c={form_dx:num('form_dx',14),form_dy:num('form_dy',12),form_top:num('form_top',14),
     form_sway:num('form_sway',12),form_period:num('form_period',8),
     back_spd:num('back_spd',1.2),back_turn:num('back_turn',0.02),
-    roam_spd:num('roam_spd',0.5),roam_bottom:num('roam_bottom',60)};
+    roam_spd:num('roam_spd',0.5),roam_bottom:num('roam_bottom',60),
+    kami_wait:num('kami_wait',60),kami_n:num('kami_n',5),kami_gap:num('kami_gap',40),
+    kami_dx:num('kami_dx',10),kami_dy:num('kami_dy',2),kami_spd:num('kami_spd',1.6),kami_low:num('kami_low',85),
+    kami_brake:num('kami_brake',0.05),kami_fan:num('kami_fan',0.05)};
   const km=lua.match(/kinds=\{([^}]*)\}/);
   c.kinds=km? km[1].split(',').map(s=>s.trim().replace(/"/g,'')) : ['red','green','blue','bug'];
   c.spr={}; c.size={}; c.rot={}; c.big={};
@@ -178,7 +189,11 @@ function decodeLevels(b,defDx=14,defDy=12){
   const lv=[]; let a=v2?3:0;
   while(a<4096 && b[a]>0){
     const end=a+b[a]; let p=a+1; const rd=()=>b[p++];
-    const L={bonus:rd()==1,cols:rd(),rows:rd(),dx:defDx,dy:defDy,grid:[],streams:[]};
+    const t=rd();
+    const L={bonus:t==1,kami:t==2,cols:0,rows:0,dx:defDx,dy:defDy,grid:[],streams:[],kind:1,waves:5};
+    // kamikaze: only kind and waves
+    if(L.kami){ L.kind=rd(); L.waves=rd(); L.cols=5; L.rows=3; L.grid=emptyGrid(5,3); lv.push(L); a=end; continue; }
+    L.cols=rd(); L.rows=rd();
     if(v2){ L.dx=rd(); L.dy=rd(); }
     for(let r=0;r<L.rows;r++){ const row=[]; for(let c=0;c<L.cols;c++){ const v=rd(); row.push({k:v%16,st:v>>4}); } L.grid.push(row); }
     const ns=rd();
@@ -196,6 +211,7 @@ function decodeLevels(b,defDx=14,defDy=12){
 function emptyGrid(c,r){ const g=[]; for(let y=0;y<r;y++){ const row=[]; for(let x=0;x<c;x++) row.push({k:0,st:1}); g.push(row); } return g; }
 
 function encodeLevel(L){
+  if(L.kami){ const k=[2,L.kind|0,L.waves|0]; k.unshift(k.length+1); return k; }
   const o=[L.bonus?1:0, L.bonus?0:L.cols, L.bonus?0:L.rows, L.dx, L.dy];
   if(!L.bonus) for(let r=0;r<L.rows;r++) for(let c=0;c<L.cols;c++){
     const s=L.grid[r][c]; o.push(s.k? s.k+16*s.st : 0); }
@@ -261,7 +277,8 @@ if(typeof document!=='undefined'){
 const S=3, OFF=32;               // canvas scale, visible margin
 // points may lie in the margin around the screen
 const clampV=v=>Math.max(-OFF,Math.min(127+OFF,Math.round(v)));
-const SCOL=['','#ff5577','#33ddff','#88ff55'];
+const SCOL=['','#ff5577','#33ddff','#88ff55','#ffa300','#cc88ff'];
+const MAXST=5;
 const FS=!!window.showOpenFilePicker; // file system access (chrome, edge)
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
 
@@ -319,10 +336,10 @@ function kindIcon(k,px){ const c=document.createElement('canvas'); const w=C.siz
 // ---------- level helpers ----------
 const L=()=>levels[cur];
 function emptyLevel(){
-  return {bonus:false,cols:5,rows:3,dx:C.form_dx,dy:C.form_dy,grid:emptyGrid(5,3),streams:[newStream(0)]};
+  return {bonus:false,kami:false,kind:1,waves:5,cols:5,rows:3,dx:C.form_dx,dy:C.form_dy,grid:emptyGrid(5,3),streams:[newStream(0)]};
 }
 function newStream(i){
-  const x=[40,88,64][i%3];
+  const x=[40,88,64,24,104][i%5];
   return {delay:i*40,gap:8,speed:1.5,kind:1,count:8,pts:[[x,-12],[x,50],[x+(i%2?30:-30),90],[64,50]]};
 }
 function slotPos(c,r,t){
@@ -339,7 +356,7 @@ function render(){
   ctx.strokeStyle='#fff'; ctx.lineWidth=1; ctx.strokeRect(OFF*S-0.5,OFF*S-0.5,128*S+1,128*S+1);
   if(!L()) return;
   lay=layout(L(),C);
-  if($('showSlots').checked && !L().bonus && !preview){
+  if($('showSlots').checked && !L().bonus && !L().kami && !preview){
     for(let r=0;r<L().rows;r++) for(let c=0;c<L().cols;c++){
       const s=L().grid[r][c]; if(!s.k) continue;
       const k=C.kinds[s.k-1]; const [x,y]=slotPos(c,r);
@@ -347,7 +364,7 @@ function render(){
       ctx.fillStyle=SCOL[s.st]||'#fff'; ctx.fillRect((x+OFF)*S-2,(y+4+OFF)*S,4,4);
     }
   }
-  L().streams.forEach((s,i)=>{
+  if(!L().kami) L().streams.forEach((s,i)=>{
     const col=SCOL[i+1]; const sel=i==selStream && !preview;
     ctx.strokeStyle=col; ctx.globalAlpha=sel?1:0.5; ctx.lineWidth=sel?2:1.5;
     ctx.beginPath();
@@ -377,6 +394,9 @@ function render(){
 // ---------- preview simulation (like the cart) ----------
 function startPreview(){
   const Lv=L(); const q=[];
+  if(Lv.kami){ const m=(C.kami_n-1)/2*C.kami_dx+12;
+    for(let i=0;i<Lv.waves;i++) q.push({wave:true,x:m+i*(128-2*m)/Math.max(1,Lv.waves-1)});
+    preview={t:0,q,ships:[],kami:C.kinds[Lv.kind-1],first:true}; return; }
   Lv.streams.forEach((s,si)=>{
     let j=0;
     if(Lv.bonus){ for(let i=0;i<s.count;i++) q.push({t:s.delay+j++*s.gap,s,k:C.kinds[s.kind-1]||C.kinds[0]}); }
@@ -388,7 +408,16 @@ function startPreview(){
 }
 function stepPreview(){
   const P=preview; P.t++;
-  for(const q of P.q.slice()) if(P.t>=q.t){
+  // kamikaze: next wave when the last one is gone, after a pause
+  if(P.kami){
+    if(P.ships.some(o=>o.alive) || !P.q.length) P.wait=null;
+    else { if(P.wait==null) P.wait=P.t+(P.first?C.kami_wait:C.kami_gap);
+      if(P.t>=P.wait){ const q=P.q.shift(); P.first=false; P.wait=null;
+        for(let j=0;j<C.kami_n;j++){ const m=j-(C.kami_n-1)/2;
+          P.ships.push({k:P.kami,x:q.x+m*C.kami_dx,y:-8-j*C.kami_dy,a:0.75,st:'kami',vx:m*C.kami_fan,vy:C.kami_spd,alive:true,
+            mode:C.rot[P.kami]!==undefined?'dir':'anim',v:0}); } } }
+  }
+  for(const q of P.q.slice()) if(!q.wave && P.t>=q.t){
     const p0=q.s.pts[0];
     P.ships.push({k:q.k,x:p0[0],y:p0[1],a:0.75,st:'enter',s:q.s,seg:0,u:0,c:q.c,r:q.r,alive:true,
       mode:C.rot[q.k]!==undefined?'dir':'anim',v:0});
@@ -416,12 +445,17 @@ function stepPreview(){
       if(n<1){ o.st='form'; o.mode='anim'; }
     } else if(o.st=='form'){
       [o.x,o.y]=slotPos(o.c,o.r,P.t);
+    } else if(o.st=='kami'){
+      if(o.y>=C.kami_low) o.up=true;
+      if(o.up){ o.vy=Math.max(o.vy-C.kami_brake,-C.kami_spd); o.vx*=0.95; }
+      o.x+=o.vx; o.y+=o.vy; o.a=p8atan2(o.vx,o.vy);
+      if(o.up && o.y<-12) o.alive=false;
     } else if(o.st=='roam'){
       if(--o.rt<=0){ o.rt=60+Math.random()*90; o.ta=Math.random(); }
       if(o.x<12||o.x>116||o.y<10||o.y>C.roam_bottom) o.ta=p8atan2(64-o.x,34-o.y);
       const d=((o.ta-o.a+0.5)%1+1)%1-0.5; o.a+=Math.max(-0.03,Math.min(0.03,d));
     }
-    if(o.st!='enter'&&o.st!='form'){ o.x+=p8cos(o.a)*o.v; o.y+=p8sin(o.a)*o.v; }
+    if(o.st!='enter'&&o.st!='form'&&o.st!='kami'){ o.x+=p8cos(o.a)*o.v; o.y+=p8sin(o.a)*o.v; }
     o.a=((o.a%1)+1)%1;
   }
   if(P.q.length==0 && P.ships.every(o=>!o.alive||o.st=='form'||o.st=='roam') && P.t>60) P.done=(P.done||0)+1;
@@ -430,35 +464,46 @@ function stepPreview(){
 function loop(){ if(preview){ stepPreview(); } render(); requestAnimationFrame(loop); }
 
 // ---------- panels ----------
-function aliensOf(Lv){ return Lv.bonus? Lv.streams.reduce((a,s)=>a+s.count,0) : Lv.grid.flat().filter(s=>s.k).length; }
+function aliensOf(Lv){ if(Lv.kami) return Lv.waves*C.kami_n; return Lv.bonus? Lv.streams.reduce((a,s)=>a+s.count,0) : Lv.grid.flat().filter(s=>s.k).length; }
 function updateLevelList(){
   const ul=$('levels'); ul.innerHTML='';
   levels.forEach((Lv,i)=>{
     const li=document.createElement('li'); if(i==cur) li.className='sel';
     const n=Lv.streams.length;
-    li.innerHTML='Level '+(i+1)+'<span>'+(Lv.bonus?'bonus, ':'')+aliensOf(Lv)+' aliens, '+n+' stream'+(n==1?'':'s')+'</span>';
+    li.innerHTML='Level '+(i+1)+'<span>'+(Lv.kami? 'kamikaze, '+aliensOf(Lv)+' '+C.kinds[Lv.kind-1]
+      : (Lv.bonus?'bonus, ':'')+aliensOf(Lv)+' aliens, '+n+' stream'+(n==1?'':'s'))+'</span>';
     li.onclick=()=>{ cur=i; selStream=0; preview=null; refresh(); };
     ul.appendChild(li);
   });
 }
 function updateSettings(){
-  $('bonus').checked=L().bonus;
+  $('ltype').value=L().kami?2:L().bonus?1:0;
+  $('kamiBox').style.display=L().kami?'':'none';
+  $('stSec').style.display=L().kami?'none':'';
+  kindPicker($('kkind'),L().kind,k=>{ snapshot(); L().kind=k; refresh(); });
+  $('kwaves').value=L().waves;
   $('cols').value=L().cols; $('rows').value=L().rows; $('dx').value=L().dx; $('dy').value=L().dy;
-  $('formSec').style.display=L().bonus?'none':'';
+  $('formSec').style.display=(L().bonus||L().kami)?'none':'';
   lay=layout(L(),C);
   $('swayinfo').textContent='sway ±'+Math.round(lay.sway)+' px';
 }
-function updateBrush(){
-  const kb=$('kindBrush'); kb.innerHTML='<label>kind</label>';
+// buttons with the sprite of each kind
+function kindPicker(box,cur,pick){
+  box.innerHTML='<label>kind</label>';
   C.kinds.forEach((k,i)=>{ const b=document.createElement('button'); b.title=k;
     if(cartText){ b.appendChild(kindIcon(k)); b.append(' '+k); } else b.textContent=k;
-    if(brushK==i+1) b.className='on'; b.onclick=()=>{ brushK=i+1; updateBrush(); }; kb.appendChild(b); });
+    if(cur==i+1) b.className='on'; b.onclick=()=>pick(i+1); box.appendChild(b); });
+}
+function updateBrush(){
+  kindPicker($('kindBrush'),brushK,k=>{ brushK=k; updateBrush(); });
   const sb=$('streamBrush'); sb.innerHTML='<label>stream</label>';
-  for(let i=1;i<=3;i++){ const b=document.createElement('button'); b.textContent=i; b.style.color=SCOL[i];
+  for(let i=1;i<=MAXST;i++){ const b=document.createElement('button'); b.textContent=i; b.style.color=SCOL[i];
     if(brushS==i) b.className='on'; b.onclick=()=>{ brushS=i; updateBrush(); }; sb.appendChild(b); }
 }
 function updateGrid(){
-  const g=$('grid'); g.innerHTML=''; g.style.gridTemplateColumns='repeat('+L().cols+',30px)';
+  // cells get smaller for wide formations
+  const g=$('grid'); g.innerHTML=''; const cell=Math.min(30,Math.floor(372/L().cols)-2);
+  g.style.setProperty('--cell',cell+'px'); g.style.gridTemplateColumns='repeat('+L().cols+','+cell+'px)';
   for(let r=0;r<L().rows;r++) for(let c=0;c<L().cols;c++){
     const s=L().grid[r][c]; const d=document.createElement('div');
     if(s.k){ d.style.borderColor=SCOL[s.st]; if(cartText) d.appendChild(kindIcon(C.kinds[s.k-1]));
@@ -490,12 +535,12 @@ function updateStreams(){
     r1.appendChild(numInput('speed',s.speed,0.0625,0.0625,8,v=>s.speed=Math.round(v*16)/16));
     d.appendChild(r1);
     if(L().bonus){
-      const r2=document.createElement('div'); r2.className='row';
-      const ks=document.createElement('select'); C.kinds.forEach((k,j)=>{ const o=document.createElement('option'); o.value=j+1; o.textContent=k; if(s.kind==j+1) o.selected=true; ks.appendChild(o); });
-      ks.onchange=()=>{ snapshot(); s.kind=+ks.value; refresh(); };
-      const w=document.createElement('span'); w.className='field'; w.innerHTML='<label>kind</label>'; w.appendChild(ks); r2.appendChild(w);
-      r2.appendChild(numInput('count',s.count,1,1,40,v=>s.count=v));
+      const r2=document.createElement('div'); r2.className='row brush';
+      kindPicker(r2,s.kind,k=>{ snapshot(); s.kind=k; refresh(); });
       d.appendChild(r2);
+      const r2b=document.createElement('div'); r2b.className='row';
+      r2b.appendChild(numInput('count',s.count,1,1,40,v=>s.count=v));
+      d.appendChild(r2b);
     }
     const r3=document.createElement('div'); r3.className='row';
     const add=document.createElement('button'); add.textContent='segment +';
@@ -506,14 +551,23 @@ function updateStreams(){
     rem.onclick=()=>{ if(s.pts.length>4){ snapshot(); s.pts.splice(-3,3); refresh(); } };
     const mir=document.createElement('button'); mir.textContent='mirror';
     mir.onclick=()=>{ snapshot(); s.pts=s.pts.map(([x,y])=>[127-x,y]); refresh(); };
+    const cm=document.createElement('button'); cm.textContent='copy mirrored';
+    cm.title='new stream: mirrored at the screen center';
+    cm.disabled=L().streams.length>=MAXST;
+    cm.onclick=()=>{ if(L().streams.length<MAXST){ snapshot();
+      const c=JSON.parse(JSON.stringify(s)); c.pts=c.pts.map(([x,y])=>[127-x,y]);
+      L().streams.splice(i+1,0,c);
+      // slots of later streams move one number up
+      L().grid.flat().forEach(g=>{ if(g.st>i+1) g.st++; });
+      selStream=i+1; refresh(); } };
     const del=document.createElement('button'); del.textContent='delete';
     del.onclick=()=>{ if(L().streams.length>1){ snapshot(); L().streams.splice(i,1);
       L().grid.flat().forEach(g=>{ if(g.st==i+1) g.st=1; else if(g.st>i+1) g.st--; });
       selStream=0; refresh(); } };
-    r3.append(add,rem,mir,del); d.appendChild(r3);
+    r3.append(add,rem,mir,cm,del); d.appendChild(r3);
     box.appendChild(d);
   });
-  $('stAdd').disabled=L().streams.length>=3;
+  $('stAdd').disabled=L().streams.length>=MAXST;
 }
 function updateBytes(){
   const {bytes,sizes}=encodeAll(levels);
@@ -530,12 +584,14 @@ function updateSaveInfo(){
   $('saveinfo').innerHTML=t.join('<br>');
   $('bdir').hidden=!FS;
 }
-function refresh(){ updateLevelList(); updateSettings(); updateBrush(); if(!L().bonus) updateGrid(); updateStreams(); updateBytes(); updateSaveInfo(); }
+function refresh(){ updateLevelList(); updateSettings(); updateBrush(); if(!L().bonus&&!L().kami) updateGrid(); if(!L().kami) updateStreams(); updateBytes(); updateSaveInfo(); }
 
 // ---------- level settings ----------
-$('bonus').onchange=e=>{ snapshot(); L().bonus=e.target.checked; refresh(); };
+$('ltype').onchange=e=>{ snapshot(); const t=+e.target.value; L().bonus=t==1; L().kami=t==2;
+  if(!L().kami && !L().streams.length) L().streams.push(newStream(0)); preview=null; refresh(); };
+$('kwaves').onchange=e=>{ snapshot(); L().waves=Math.max(1,Math.min(8,+e.target.value)); refresh(); };
 function resize(){
-  snapshot(); const c=Math.max(1,Math.min(9,+$('cols').value)), r=Math.max(1,Math.min(6,+$('rows').value));
+  snapshot(); const c=Math.max(1,Math.min(14,+$('cols').value)), r=Math.max(1,Math.min(6,+$('rows').value));
   const g=[]; for(let y=0;y<r;y++){ const row=[]; for(let x=0;x<c;x++) row.push((L().grid[y]&&L().grid[y][x])||{k:0,st:1}); g.push(row); }
   L().cols=c; L().rows=r; L().grid=g; refresh();
 }
@@ -547,7 +603,7 @@ $('lvDup').onclick=()=>{ snapshot(); levels.splice(cur+1,0,JSON.parse(JSON.strin
 $('lvDel').onclick=()=>{ if(levels.length>1){ snapshot(); levels.splice(cur,1); cur=Math.min(cur,levels.length-1); refresh(); } };
 $('lvUp').onclick=()=>{ if(cur>0){ snapshot(); [levels[cur-1],levels[cur]]=[levels[cur],levels[cur-1]]; cur--; refresh(); } };
 $('lvDown').onclick=()=>{ if(cur<levels.length-1){ snapshot(); [levels[cur+1],levels[cur]]=[levels[cur],levels[cur+1]]; cur++; refresh(); } };
-$('stAdd').onclick=()=>{ if(L().streams.length<3){ snapshot(); L().streams.push(newStream(L().streams.length)); selStream=L().streams.length-1; refresh(); } };
+$('stAdd').onclick=()=>{ if(L().streams.length<MAXST){ snapshot(); L().streams.push(newStream(L().streams.length)); selStream=L().streams.length-1; refresh(); } };
 $('play').onclick=()=>startPreview();
 $('stop').onclick=()=>{ preview=null; };
 document.addEventListener('keydown',e=>{
