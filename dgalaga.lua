@@ -44,7 +44,36 @@ salvo_gap=14    -- frames between
 trail_life=15   -- frames a plasma
                 -- particle lives
 
+-- levels: stored in the map
+-- (rows 0-31 = 0x2000-0x2fff),
+-- written by the level editor.
+-- do not paint in the map editor!
+-- enemy kinds by number
+kinds={"red","green","blue","bug"}
+between_time=150 -- frames of the
+                -- screen between
+                -- levels
+bonus_msg=270   -- frames "bonus
+                -- stage" blinks
+bonus_wait=120  -- frames before the
+                -- bonus ships come
+end_wait=90     -- frames the level
+                -- goes on after the
+                -- last enemy (and no
+                -- enemy shots left)
+
+-- big enemies roam the upper half
+roam_spd=0.5    -- px/frame
+roam_turn=0.01  -- max turn/frame
+roam_dash=1.6   -- px/frame in a
+                -- dash
+dash_chance=0.3 -- per decision
+roam_bottom=60  -- lowest y
+
 -- formation
+form_dx=14      -- px between cols
+form_dy=12      -- px between rows
+form_top=14     -- y of row 0
 form_sway=12    -- px left/right
 form_period=8   -- secs per swing
 dive_every=120  -- frames between
@@ -122,23 +151,8 @@ function _init()
 	-- rotation: 8 directions per kind
 	rot={green=rot_tab(144),
 		red=rot_tab(128),blue=rot_tab(160)}
-	-- formation: one row per kind,
-	-- each enemy has its slot
-	-- (col,row) and a state st
-	for r,k in ipairs({"red","green","blue"}) do
-		for c=0,4 do
-			local o=obj_new(k,0,0)
-			o.col,o.row,o.st=c,r,"form"
-			o.x,o.y=slot(o)
-			add(e,o)
-		end
-	end
-	dive_cool=dive_every
-	wave_n=0
-	-- bug flutters over the greens
-	local o=obj_new("bug",64,24)
-	o.cool=60
-	add(e,o)
+	stage=0
+	start_level()
 	_update60=title
 end
 
@@ -173,7 +187,9 @@ function game()
 	if(btn(➡️)) then
 	 p.x=p.x+1 --and < 128
 	 til=1
- end	
+ end
+	-- stay on the screen
+	p.x=mid(0,p.x,120)	
 	-- debug: up = next weapon
 	if (btnp(⬆️)) p.w=p.w%#wpn+1
 	-- fire: one shot per press
@@ -194,6 +210,7 @@ function game()
 			if (ammo==shot_max) reloading=false
 		end
 	end
+ spawn()
  enem()
  plasma()
  ebullets()
@@ -208,9 +225,25 @@ function game()
 		if (p.dead==0 and p.inv%8<4) spr(19+til,p.x,p.y)
 	end
 	hud()
+	-- bonus: blinking announcement
+	if lev.bonus and lev.t<bonus_msg and lev.t%30<20 then
+		print("bonus stage",42,50,10)
+	end
+	-- all came and all are gone:
+	-- go on a bit (explosions,
+	-- shots still flying)
+	if #lev.q==0 and #e==0 then
+		lev.done+=1
+		if lev.done>=end_wait and #eb+#pb==0 and p.dead==0 then
+			hiscore=max(hiscore,score)
+			bt=between_time
+			_update60=between
+		end
+	end
 end
 
 function over()
+	hiscore=max(hiscore,score)
 	cls(0)
 	stars()
 	print("game over",46,56,8)
@@ -313,18 +346,6 @@ function rot_tab(n)
 		{n+2,false,true}}
 end
 
--- bug: swings over the formation,
--- shoots now and then
-function bug_move(o)
-	o.x=64+sin(t()/6)*44
-	o.y=24+sin(t()/1.5)*2
-	o.cool-=1
-	if o.cool<=0 then
-		big_shot(o)
-		o.cool=40+rnd(60)
-	end
-end
-
 -- big enemy fires its own
 -- projectile, aimed at the ship
 -- (where it is now) or down
@@ -374,8 +395,9 @@ end
 -- formation, whole formation
 -- swings left and right
 function slot(o)
-	return 24+o.col*20+sin(t()/form_period)*form_sway,
-		o.row*12
+	return 64+(o.col-(lev.c-1)/2)*form_dx
+		+sin(t()/form_period)*form_sway,
+		form_top+o.row*form_dy
 end
 
 -- now and then one enemy leaves
@@ -387,11 +409,12 @@ function start_dive()
 	dive_cool-=1
 	local f={}
 	for en in all(e) do
-		if (en.st=="form") add(f,en)
+		-- big ones stay in formation
+		if (en.st=="form" and not eshot[en.k]) add(f,en)
 		-- someone still out: wait
-		if (en.st=="dive" or en.st=="back") return
+		if (en.st=="dive" or en.st=="back" or en.st=="enter") return
 	end
-	if (dive_cool>0 or #f==0) return
+	if (dive_cool>0 or #f==0 or #lev.q>0) return
 	dive_cool=dive_every+rnd(dive_every)
 	wave_n=wave_n%#wave+1
 	for i=1,min(wave[wave_n],#f) do
@@ -415,6 +438,10 @@ end
 function form_move(o)
 	if o.st=="form" then
 		o.x,o.y=slot(o)
+	elseif o.st=="roam" then
+		roam(o)
+	elseif o.st=="enter" then
+		fly_path(o)
 	elseif o.st=="dive" then
 		-- 1. spin out, slowly
 		if o.ph=="spin" then
@@ -465,17 +492,19 @@ function form_move(o)
 	elseif o.st=="back" then
 		local sx,sy=slot(o)
 		local dx,dy=sx-o.x,sy-o.y
-		-- turn towards the slot,
-		-- at most back_turn per frame
-		local d=(atan2(dx,dy)-o.a+0.5)%1-0.5
+		local n=abs(dx)+abs(dy)
+		-- turn towards the slot, close
+		-- to it: towards the formation
+		-- pose (up, like the anim image)
+		local d=((n<12 and 0.25 or atan2(dx,dy))-o.a+0.5)%1-0.5
 		o.a+=mid(-back_turn,d,back_turn)
 		-- close: glide into the slot
 		-- (turn circle is ~10 px)
-		local n=abs(dx)+abs(dy)
 		if n<12 then
 			o.v=0
 			o.x+=dx*0.15
 			o.y+=dy*0.15
+			o.a+=mid(-0.04,d,0.04)
 		end
 		if n<1 then
 			o.st,o.mode="form","anim"
@@ -534,10 +563,16 @@ end
 function enem()
 	start_dive()
 	for en in all(e) do
-		if (en.k=="bug") bug_move(en)
 		if (en.st) form_move(en)
 		obj_update(en)
-		obj_draw(en)
+	end
+	-- small ones first, big ones
+	-- on top of them
+	for en in all(e) do
+		if (not eshot[en.k]) obj_draw(en)
+	end
+	for en in all(e) do
+		if (eshot[en.k]) obj_draw(en)
 	end
 end
 
@@ -555,8 +590,8 @@ end
 
 -- ships left, top right
 function hud()
-	spr(21,110,-1)
-	print("x"..lives,118,1,7)
+	spr(21,112,-1)
+	print(lives,120,1,7)
 end
 
 -- fire weapon w: one bullet per
@@ -591,6 +626,7 @@ function hit(bu)
 			en.fl=flash_time
 			if en.hp<=0 then
 				score+=worth[en.k] or 0
+				if (en.bonus) lev.hits+=1
 				boom(en)
 				del(e,en)
 			end
@@ -631,3 +667,182 @@ function booms()
 	end
 end
 
+-->8
+-- ====== levels ======
+-- level in the map, from 0x2000:
+-- len (0=end of list), type
+-- (0 normal,1 bonus), cols, rows,
+-- per slot: kind+16*stream,
+-- streams, per stream: delay/4,
+-- gap, speed*16, kind+count (only
+-- bonus), segments, points x+64,
+-- y+64 (start + 3 per segment)
+
+-- read level n (after the last:
+-- start again with level 1)
+function load_level(n)
+	local a=0x2000
+	for i=2,n do
+		a+=peek(a)
+		if (peek(a)==0) a=0x2000
+	end
+	local function rd()
+		a+=1
+		return peek(a)
+	end
+	local l={bonus=rd()==1,c=rd(),r=rd(),
+		slots={},q={},t=0,hits=0,n=0,done=0}
+	for row=0,l.r-1 do
+		for col=0,l.c-1 do
+			local v=rd()
+			if (v%16>0) add(l.slots,{col=col,row=row,k=kinds[v%16],st=v\16})
+		end
+	end
+	for si=1,rd() do
+		local st={delay=rd()*4,gap=rd(),v=rd()/16,
+			k=kinds[rd()],n=rd(),m=rd(),pts={}}
+		for i=0,3*st.m do
+			add(st.pts,{rd()-64,rd()-64})
+		end
+		-- who flies this stream, when
+		local j=0
+		if l.bonus then
+			for i=1,st.n do
+				add(l.q,{t=bonus_wait+st.delay+j*st.gap,st=st,k=st.k})
+				j+=1
+			end
+		else
+			for sl in all(l.slots) do
+				if sl.st==si then
+					add(l.q,{t=st.delay+j*st.gap,st=st,k=sl.k,sl=sl})
+					j+=1
+				end
+			end
+		end
+	end
+	l.n=#l.q
+	return l
+end
+
+function start_level()
+	stage+=1
+	lev=load_level(stage)
+	e,pb,eb={},{},{}
+	dive_cool=dive_every
+	wave_n=0
+end
+
+-- launch the enemies whose time
+-- has come, at the path start
+function spawn()
+	lev.t+=1
+	for q in all(lev.q) do
+		if lev.t>=q.t then
+			local pt0=q.st.pts[1]
+			local o=obj_new(q.k,pt0[1],pt0[2],
+				rot[q.k] and "dir" or "anim")
+			o.st,o.path,o.seg,o.u="enter",q.st,0,0
+			o.cool=60+rnd(60)
+			if q.sl then
+				o.col,o.row=q.sl.col,q.sl.row
+			else
+				o.bonus=true
+			end
+			add(e,o)
+			del(lev.q,q)
+		end
+	end
+end
+
+-- point and direction on bezier
+-- segment i (0..) at u (0..1)
+function bez(q,i,u)
+	local a,b,c,d=q[3*i+1],q[3*i+2],q[3*i+3],q[3*i+4]
+	local v=1-u
+	local function f(k)
+		return v*v*v*a[k]+3*v*v*u*b[k]+3*v*u*u*c[k]+u*u*u*d[k],
+			3*v*v*(b[k]-a[k])+6*v*u*(c[k]-b[k])+3*u*u*(d[k]-c[k])
+	end
+	local x,dx=f(1)
+	local y,dy=f(2)
+	return x,y,dx,dy
+end
+
+-- follow the path at constant
+-- speed. end: fly home (back),
+-- bonus enemies just leave
+function fly_path(o)
+	local x,y,dx,dy=bez(o.path.pts,o.seg,o.u)
+	o.x,o.y=x,y
+	if (dx!=0 or dy!=0) o.a=atan2(dx,dy)
+	-- length of the derivative,
+	-- approx. (no overflow)
+	local ax,ay=abs(dx),abs(dy)
+	o.u+=o.path.v/max(1,max(ax,ay)+min(ax,ay)/2)
+	if o.u>=1 then
+		o.u-=1
+		o.seg+=1
+		if o.seg>=o.path.m then
+			if eshot[o.k] then
+				-- big ones roam
+				o.st,o.v,o.ta,o.rt="roam",roam_spd,o.a,0
+			elseif o.col then
+				o.st,o.v="back",back_spd
+			else
+				del(e,o)
+			end
+		end
+	end
+end
+
+-- big enemy wanders in the upper
+-- half: new heading now and then,
+-- sometimes a dash, shoots
+function roam(o)
+	o.rt-=1
+	if o.rt<=0 then
+		o.rt=60+rnd(90)
+		if rnd()<dash_chance then
+			o.v,o.dash=roam_dash,20+rnd(20)
+		else
+			o.ta=rnd()
+		end
+	end
+	-- dash over: slow again
+	if o.dash then
+		o.dash-=1
+		if (o.dash<=0) o.dash,o.v=nil,roam_spd
+	end
+	-- leaving the area: stop a dash,
+	-- turn back to the middle, faster
+	local tr=roam_turn
+	if o.x<12 or o.x>116 or o.y<10 or o.y>roam_bottom then
+		o.ta=atan2(64-o.x,34-o.y)
+		o.dash,o.v,tr=nil,roam_spd,roam_turn*3
+	end
+	local d=(o.ta-o.a+0.5)%1-0.5
+	o.a+=mid(-tr,d,tr)
+	o.cool-=1
+	if o.cool<=0 then
+		big_shot(o)
+		o.cool=40+rnd(60)
+	end
+end
+
+-- screen between levels
+function between()
+	cls(0)
+	stars()
+	local function mid_print(t,y,c)
+		print(t,64-#t*2,y,c)
+	end
+	mid_print("stage "..stage,40,10)
+	if (lev.bonus) mid_print("hits "..lev.hits.." of "..lev.n,52,11)
+	mid_print("score "..score,64,7)
+	mid_print("hi "..hiscore,74,6)
+	bt-=1
+	if bt<=0 then
+		start_level()
+		_update60=game
+	end
+end

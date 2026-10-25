@@ -81,14 +81,20 @@ der neueren Amigas (A1200/A4000).
 - **Große Gegner** schießen gezielt auf das Schiff, jeder mit eigenem Projektil
 - **Sturzflug:** kreiselnd aus der Formation, schräg nach unten feuernd,
   manchmal mit Kreis im unteren Bildteil
+- **Level** liegen als Daten in der Map der Cart (kostet keinen Code):
+  Formation, bis zu 3 Ströme auf Bézierbahnen, auf denen die Aliens
+  einfliegen und sich in ihre Plätze aufteilen. Große Aliens wandern frei
+  in der oberen Hälfte, wechseln die Richtung und stoßen vor.
+- **Bonusrunden** („bonus stage“ blinkt): Aliens kreuzen ohne zu schießen
+- **Levelübergang** mit Stage, Punkten und Highscore; nach dem letzten
+  Abschuss läuft das Level noch kurz weiter
 - Lebensanzeige oben rechts (Punkte und Highscore kommen zwischen den Leveln)
 
 ## Geplant
 
 - Einflug der Formation, Angriffe auf den Spieler
-- Level-Daten in der Map, Einflug der Formation in Strömen auf Bézierbahnen
-- Levelübergang mit Punkte- und Highscore-Anzeige, Bonusrunden
-- Level-Editor als Webseite
+- Level-Editor als Webseite (lädt die Cart, zeigt die Level, Bahnen per
+  Maus, Vorschau mit den echten Sprites)
 - Extras (mehr Schüsse, Waffen)
 - Level und Übergänge
 - Meteoritensturm
@@ -111,6 +117,7 @@ Im Browser: Pfeiltasten, **X** schießt.
 | `dgalaga.p8` | die Cart (in PICO-8: `load dgalaga`) |
 | `dgalaga.p8.png` | dieselbe Cart als Bild-Datei |
 | `dgalaga.lua` | der Quellcode zum Lesen |
+| `tools/levels.py` | schreibt die Level in die Map (bis der Editor fertig ist) |
 
 ## Hinweis
 
