@@ -32,6 +32,8 @@ pb={} -- projectiles of big enemies
 -- colors (bright,dark; nil=none)
 eshot={
 	bug={s=51,v=1,aim=true,c1=11,c2=3},
+	-- placeholder: own sprite later
+	mother={s=51,v=1.2,aim=true},
 }
 pt={} -- particles
 eb={} -- enemy bullets
@@ -50,7 +52,7 @@ trail_life=15   -- frames a plasma
 -- written by the level editor.
 -- do not paint in the map editor!
 -- enemy kinds by number
-kinds={"red","green","blue","bug"}
+kinds={"red","green","blue","bug","ufo","mother"}
 between_time=150 -- frames of the
                 -- screen between
                 -- levels
@@ -125,8 +127,8 @@ wpn={
 }
 
 -- hit points and score per kind
-hp={red=1,green=1,blue=1,bug=5}
-worth={red=50,green=40,blue=30,bug=200}
+hp={red=1,green=1,blue=1,bug=5,ufo=1,mother=8}
+worth={red=50,green=40,blue=30,bug=200,ufo=100,mother=500}
 flash_time=4    -- frames white
                 -- after a hit
 -- explosion: sprites 64-68,
@@ -135,7 +137,8 @@ boom_spd=4
 -- particle colors per kind
 -- {bright,dark}
 col={ship={7,12},red={8,2},green={11,3},
-	blue={12,1},bug={14,2}}
+	blue={12,1},bug={14,2},
+	ufo={6,13},mother={6,8}}
 fx={} -- running explosions
 
 -- animations by time: per frame
@@ -146,6 +149,8 @@ anim={
 	blue={{160,false,false,20},{161,false,false,20}},
 	-- sz=2: sprite is 2x2
 	bug={{164,false,false,12},{166,false,false,12},sz=2},
+	ufo={{176,false,false,20},{177,false,false,20}},
+	mother={{168,false,false,16},{170,false,false,16},sz=2},
 	coin={{112,false,false,6},{113,false,false,6},
 		{114,false,false,6},{115,false,false,6},
 		{115,false,true,6},{114,false,true,6},
@@ -173,7 +178,8 @@ function _init()
 	end
 	-- rotation: 8 directions per kind
 	rot={green=rot_tab(144),
-		red=rot_tab(128),blue=rot_tab(160)}
+		red=rot_tab(128),blue=rot_tab(160),
+		ufo=rot_tab(176)}
 	stage=dbg_start-1
 	start_level()
 	_update60=title

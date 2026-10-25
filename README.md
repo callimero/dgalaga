@@ -95,6 +95,8 @@ der neueren Amigas (A1200/A4000).
 - **Bonusrunden** („bonus stage“ blinkt): Aliens kreuzen ohne zu schießen
 - **Kamikaze-Level:** Wellen von Aliens stürzen nebeneinander von oben
   herab, feuern heftig, wenden unten und fliegen wieder hinaus
+- **Gegnerarten:** rot, grün, blau, UFO (kleine Aliens mit Flattern und
+  8 Drehrichtungen), dazu die großen Käfer und Mutterschiffe
 - **Levelübergang** mit Stage, Punkten und Highscore; nach dem letzten
   Abschuss läuft das Level noch kurz weiter
 - Lebensanzeige oben rechts (Punkte und Highscore kommen zwischen den Leveln)
