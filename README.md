@@ -52,6 +52,24 @@ einen Emulator: Auf [deluxegalaga.com](https://deluxegalaga.com/index.html)
 läuft es inzwischen sogar im Browser – in voller AGA-Pracht, dem Grafikmodus
 der neueren Amigas (A1200/A4000).
 
+## Neu: Extras! 🎁
+
+Abgeschossene Aliens lassen jetzt **Extras** fallen – einsammeln, indem man
+mit dem Schiff darunter fliegt:
+
+| Extra | Wirkung |
+|---|---|
+| **Bullet** | ein Schuss mehr im Magazin (bis 6) |
+| **Speed** | das Schiff wird schneller (es startet bewusst etwas träge) |
+| **Shield** | 10 Sekunden unverwundbar (blinkend) |
+| **Single / Double / Triple Shot** | installiert diese Waffe – fängt man die Waffe, die man schon hat, gibt es einen Schuss mehr im Magazin |
+| **Extraleben** | ein Schiff mehr |
+
+Wie oft etwas fällt, ist zweistufig geregelt: erst die Chance auf *irgendein*
+Extra, dann entscheidet ein Gewicht, welches (Bullets oft, Extraleben selten).
+Wer ein Leben verliert, verliert eine Waffenstufe. Scoop, Panzerung, die
+Buchstaben E-X-T-R-A und die Totenköpfe folgen.
+
 ## Stand
 
 - Titel, Spiel als Zustände über `_update60=funktion`
@@ -62,7 +80,7 @@ der neueren Amigas (A1200/A4000).
   einer (Festhalten feuert nicht automatisch). Erst wenn es leer ist, lädt
   es nach – also gut haushalten.
 - **Waffen:** Einzel-, Doppel- und Dreifachschuss; der Dreifachschuss
-  fächert auseinander. Später als Extras, zum Testen mit ⬆️ umschaltbar.
+  fächert auseinander. Kommen als Extras, zum Testen mit ⬆️ umschaltbar.
 - **Gegner als Objekte** mit drei Arten der Darstellung:
   - Flattern in der Formation (Bilder nach Zeit, jeder Gegner mit eigenem
     Takt und Startbild, damit die Formation nicht im Gleichschritt flattert)
@@ -103,9 +121,10 @@ der neueren Amigas (A1200/A4000).
 
 ## Geplant
 
-- Einflug der Formation, Angriffe auf den Spieler
-- Extras (mehr Schüsse, Waffen)
-- Level und Übergänge
+- weitere Extras: Scoop, Panzerung, E-X-T-R-A-Buchstaben, Totenköpfe
+  (die das Schiff auch verschlechtern), Abzeichen
+- höhere Waffenstufen
+- Punkte- und Highscore-Anzeige zwischen den Leveln ausbauen
 - Meteoritensturm
 
 ## Steuerung

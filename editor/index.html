@@ -97,7 +97,7 @@ code { background:#2a2e37; padding:0 3px; border-radius:3px; }
         <span class="hint" id="time"></span>
       </div>
       <canvas id="cv" width="576" height="576"></canvas>
-      <p class="hint">White frame = visible screen (128×128), around it 32 px of the invisible margin. Drag the points of the selected stream: ● anchor, ○ control point. At the end of its path an alien flies to its slot (big aliens roam, bonus aliens leave). Bonus preview starts without the game's "bonus stage" wait.</p>
+      <p class="hint">White frame = visible screen (128×128), around it 32 px of the invisible margin. Click a curve to select its stream, drag the curve to move the whole stream, drag a point to move just that point: ● anchor, ○ control point. At the end of its path an alien flies to its slot (big aliens roam, bonus aliens leave). Bonus preview starts without the game's "bonus stage" wait.</p>
     </section>
   </div>
 
@@ -114,14 +114,13 @@ code { background:#2a2e37; padding:0 3px; border-radius:3px; }
         <span class="hint" id="swayinfo"></span>
       </div>
       <div class="row brush" id="kindBrush"></div>
-      <div class="row brush" id="streamBrush"></div>
-      <p class="hint">Pick a brush, click slots. Right click empties a slot. The number = stream; a stream fills its slots row by row from the top left. Each row is centered on its own (a row of 4 sits between a row of 5).</p>
+      <p class="hint">Pick a kind, click slots: they get the <b>selected stream</b> (click its curve to select it). Right click empties a slot. The number = stream; a stream fills its slots row by row from the top left. Each row is centered on its own (a row of 4 sits between a row of 5).</p>
       <div id="grid"></div>
     </section>
     <section id="stSec">
       <h2>Streams</h2>
+      <div class="row" id="stTools"></div>
       <div id="streams"></div>
-      <div class="row"><button id="stAdd">add stream</button></div>
     </section>
   </div>
 </main>
@@ -277,13 +276,13 @@ if(typeof document!=='undefined'){
 const S=3, OFF=32;               // canvas scale, visible margin
 // points may lie in the margin around the screen
 const clampV=v=>Math.max(-OFF,Math.min(127+OFF,Math.round(v)));
-const SCOL=['','#ff5577','#33ddff','#88ff55','#ffa300','#cc88ff'];
-const MAXST=5;
+const SCOL=['','#ff5577','#33ddff','#88ff55','#ffa300','#cc88ff','#ffec27'];
+const MAXST=6;
 const FS=!!window.showOpenFilePicker; // file system access (chrome, edge)
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
 
 let cartText=null, cartName='', fileHandle=null, backupDir=null, C=readConsts(''), sprites={};
-let levels=[], cur=0, selStream=0, brushK=1, brushS=1;
+let levels=[], cur=0, selStream=0, brushK=1;
 let drag=null, preview=null, undo=[], lay={rc:[],sway:0};
 
 const $=id=>document.getElementById(id);
@@ -339,7 +338,7 @@ function emptyLevel(){
   return {bonus:false,kami:false,kind:1,waves:5,cols:5,rows:3,dx:C.form_dx,dy:C.form_dy,grid:emptyGrid(5,3),streams:[newStream(0)]};
 }
 function newStream(i){
-  const x=[40,88,64,24,104][i%5];
+  const x=[40,88,64,24,104,52][i%6];
   return {delay:i*40,gap:8,speed:1.5,kind:1,count:8,pts:[[x,-12],[x,50],[x+(i%2?30:-30),90],[64,50]]};
 }
 function slotPos(c,r,t){
@@ -496,9 +495,7 @@ function kindPicker(box,cur,pick){
 }
 function updateBrush(){
   kindPicker($('kindBrush'),brushK,k=>{ brushK=k; updateBrush(); });
-  const sb=$('streamBrush'); sb.innerHTML='<label>stream</label>';
-  for(let i=1;i<=MAXST;i++){ const b=document.createElement('button'); b.textContent=i; b.style.color=SCOL[i];
-    if(brushS==i) b.className='on'; b.onclick=()=>{ brushS=i; updateBrush(); }; sb.appendChild(b); }
+
 }
 function updateGrid(){
   // cells get smaller for wide formations
@@ -508,7 +505,7 @@ function updateGrid(){
     const s=L().grid[r][c]; const d=document.createElement('div');
     if(s.k){ d.style.borderColor=SCOL[s.st]; if(cartText) d.appendChild(kindIcon(C.kinds[s.k-1]));
       const n=document.createElement('b'); n.textContent=s.st; n.style.color=SCOL[s.st]; d.appendChild(n); }
-    d.onclick=()=>{ snapshot(); s.k=brushK; s.st=brushS; refresh(); };
+    d.onclick=()=>{ snapshot(); s.k=brushK; s.st=selStream+1; refresh(); };
     d.oncontextmenu=e=>{ e.preventDefault(); snapshot(); s.k=0; refresh(); };
     g.appendChild(d);
   }
@@ -542,7 +539,11 @@ function updateStreams(){
       r2b.appendChild(numInput('count',s.count,1,1,40,v=>s.count=v));
       d.appendChild(r2b);
     }
-    const r3=document.createElement('div'); r3.className='row';
+    // tools for the selected stream go under the heading
+    if(i!=selStream){ box.appendChild(d); return; }
+    const r3=$('stTools'); r3.innerHTML='';
+    const lab=document.createElement('span'); lab.className='hint'; lab.style.color=SCOL[i+1];
+    lab.textContent='stream '+(i+1)+':'; r3.appendChild(lab);
     const add=document.createElement('button'); add.textContent='segment +';
     add.onclick=()=>{ snapshot(); const p=s.pts, e=p[p.length-1], c=p[p.length-2];
       const dx=e[0]-c[0], dy=e[1]-c[1];
@@ -551,23 +552,51 @@ function updateStreams(){
     rem.onclick=()=>{ if(s.pts.length>4){ snapshot(); s.pts.splice(-3,3); refresh(); } };
     const mir=document.createElement('button'); mir.textContent='mirror';
     mir.onclick=()=>{ snapshot(); s.pts=s.pts.map(([x,y])=>[127-x,y]); refresh(); };
+    const cp=document.createElement('button'); cp.textContent='copy';
+    cp.title='new stream: same path, moved a little';
+    cp.disabled=L().streams.length>=MAXST;
+    cp.title='new stream: slots copied to the right of this block, path moved by the same distance in x';
+    cp.onclick=()=>copyStream(i,false);
     const cm=document.createElement('button'); cm.textContent='copy mirrored';
     cm.title='new stream: mirrored at the screen center';
     cm.disabled=L().streams.length>=MAXST;
-    cm.onclick=()=>{ if(L().streams.length<MAXST){ snapshot();
-      const c=JSON.parse(JSON.stringify(s)); c.pts=c.pts.map(([x,y])=>[127-x,y]);
-      L().streams.splice(i+1,0,c);
-      // slots of later streams move one number up
-      L().grid.flat().forEach(g=>{ if(g.st>i+1) g.st++; });
-      selStream=i+1; refresh(); } };
+    cm.title='new stream: path and slots mirrored at the center';
+    cm.onclick=()=>copyStream(i,true);
     const del=document.createElement('button'); del.textContent='delete';
     del.onclick=()=>{ if(L().streams.length>1){ snapshot(); L().streams.splice(i,1);
       L().grid.flat().forEach(g=>{ if(g.st==i+1) g.st=1; else if(g.st>i+1) g.st--; });
       selStream=0; refresh(); } };
-    r3.append(add,rem,mir,cm,del); d.appendChild(r3);
+    const na=document.createElement('button'); na.textContent='add stream';
+    na.disabled=L().streams.length>=MAXST;
+    na.onclick=()=>{ if(L().streams.length<MAXST){ snapshot(); L().streams.push(newStream(L().streams.length)); selStream=L().streams.length-1; refresh(); } };
+    r3.append(add,rem,mir,cp,cm,del,na);
     box.appendChild(d);
   });
-  $('stAdd').disabled=L().streams.length>=MAXST;
+}
+// copy stream i as a new stream i+1, with its slots: mirrored at the
+// center column, or as a block moved right by its own width (the path
+// moves by the same distance in x). only empty slots are taken.
+function copyStream(i,mirror){
+  const Lv=L(); if(Lv.streams.length>=MAXST) return;
+  snapshot();
+  const s=Lv.streams[i], mine=[];
+  for(let r=0;r<Lv.rows;r++) for(let c=0;c<Lv.cols;c++) if(Lv.grid[r][c].k && Lv.grid[r][c].st==i+1) mine.push([r,c]);
+  let shift=0;
+  if(!mirror && mine.length){ const cs=mine.map(m=>m[1]); shift=Math.max(...cs)-Math.min(...cs)+1; }
+  const c=JSON.parse(JSON.stringify(s));
+  c.pts=mirror? c.pts.map(([x,y])=>[127-x,y]) : c.pts.map(([x,y])=>[clampV(x+(shift?shift*Lv.dx:12)),y]);
+  Lv.streams.splice(i+1,0,c);
+  // slots of later streams move one number up
+  Lv.grid.flat().forEach(g=>{ if(g.st>i+1) g.st++; });
+  let miss=0;
+  for(const [r,col] of mine){
+    const tc=mirror? Lv.cols-1-col : col+shift;
+    if(tc==col) continue;                       // center column stays
+    const t=Lv.grid[r][tc];
+    if(t && !t.k){ t.k=Lv.grid[r][col].k; t.st=i+2; } else miss++;
+  }
+  selStream=i+1; refresh();
+  $('swayinfo').textContent+=miss? ' · '+miss+' slot'+(miss==1?'':'s')+' not free/outside' : '';
 }
 function updateBytes(){
   const {bytes,sizes}=encodeAll(levels);
@@ -603,32 +632,54 @@ $('lvDup').onclick=()=>{ snapshot(); levels.splice(cur+1,0,JSON.parse(JSON.strin
 $('lvDel').onclick=()=>{ if(levels.length>1){ snapshot(); levels.splice(cur,1); cur=Math.min(cur,levels.length-1); refresh(); } };
 $('lvUp').onclick=()=>{ if(cur>0){ snapshot(); [levels[cur-1],levels[cur]]=[levels[cur],levels[cur-1]]; cur--; refresh(); } };
 $('lvDown').onclick=()=>{ if(cur<levels.length-1){ snapshot(); [levels[cur+1],levels[cur]]=[levels[cur],levels[cur+1]]; cur++; refresh(); } };
-$('stAdd').onclick=()=>{ if(L().streams.length<MAXST){ snapshot(); L().streams.push(newStream(L().streams.length)); selStream=L().streams.length-1; refresh(); } };
 $('play').onclick=()=>startPreview();
 $('stop').onclick=()=>{ preview=null; };
 document.addEventListener('keydown',e=>{
   if((e.ctrlKey||e.metaKey)&&e.key=='z'&&undo.length&&e.target.tagName!='INPUT'){ e.preventDefault(); levels=JSON.parse(undo.pop()); cur=Math.min(cur,levels.length-1); refresh(); }
 });
 
-// ---------- dragging points ----------
+// ---------- mouse: points and curves ----------
+// drag a point: only that point (an anchor takes its control
+// points along). drag the curve: the whole stream moves.
+// clicking a curve selects its stream.
 function worldPos(e){ const r=cv.getBoundingClientRect(); const k=cv.width/r.width;
   return [(e.clientX-r.left)*k/S-OFF,(e.clientY-r.top)*k/S-OFF]; }
+function hitTest(x,y){
+  if(!L()||L().kami) return null;
+  const order=[selStream,...L().streams.map((_,i)=>i).filter(i=>i!=selStream)];
+  // points of the selected stream first, then of the others
+  for(const si of order){ const pts=L().streams[si].pts;
+    if(si!=selStream) continue;
+    for(let j=0;j<pts.length;j++) if(Math.hypot(pts[j][0]-x,pts[j][1]-y)<3.5) return {si,j}; }
+  for(const si of order){ const s=L().streams[si];
+    for(let g=0;g<(s.pts.length-1)/3;g++) for(let u=0;u<=1.0001;u+=0.02){
+      const [px,py]=bez(s.pts,g,Math.min(u,1)); if(Math.hypot(px-x,py-y)<2.5) return {si,curve:true}; } }
+  return null;
+}
 cv.onmousedown=e=>{
   if(preview||!L()) return; const [x,y]=worldPos(e);
-  const order=[selStream,...L().streams.map((_,i)=>i).filter(i=>i!=selStream)];
-  for(const si of order){ const pts=L().streams[si].pts;
-    for(let j=0;j<pts.length;j++) if(Math.hypot(pts[j][0]-x,pts[j][1]-y)<3.5){
-      snapshot(); selStream=si; drag={si,j}; refresh(); return; } }
+  const h=hitTest(x,y); if(!h) return;
+  snapshot(); selStream=h.si;
+  drag=h.curve? {si:h.si,curve:true,x0:x,y0:y,orig:JSON.parse(JSON.stringify(L().streams[h.si].pts))} : {si:h.si,j:h.j};
+  cv.style.cursor=h.curve?'grabbing':'move';
+  refresh();
 };
 cv.onmousemove=e=>{
-  if(!drag) return; const [x,y]=worldPos(e); const pts=L().streams[drag.si].pts;
+  const [x,y]=worldPos(e);
+  if(!drag){ if(!preview){ const h=hitTest(x,y); cv.style.cursor=!h?'default':h.curve?'grab':'move'; } return; }
+  const pts=L().streams[drag.si].pts;
+  if(drag.curve){
+    const ox=Math.round(x-drag.x0), oy=Math.round(y-drag.y0);
+    drag.orig.forEach((p,j)=>{ pts[j]=[clampV(p[0]+ox),clampV(p[1]+oy)]; });
+    return;
+  }
   const nx=clampV(x), ny=clampV(y), dx=nx-pts[drag.j][0], dy=ny-pts[drag.j][1];
   pts[drag.j]=[nx,ny];
   // an anchor takes its control points along
   if(drag.j%3==0){ if(drag.j>0) pts[drag.j-1]=[clampV(pts[drag.j-1][0]+dx),clampV(pts[drag.j-1][1]+dy)];
     if(drag.j<pts.length-1) pts[drag.j+1]=[clampV(pts[drag.j+1][0]+dx),clampV(pts[drag.j+1][1]+dy)]; }
 };
-window.onmouseup=()=>{ if(drag){ drag=null; updateBytes(); } };
+window.onmouseup=()=>{ if(drag){ drag=null; cv.style.cursor='default'; updateBytes(); } };
 
 // ---------- open / save ----------
 function loadText(text,name){

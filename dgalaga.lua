@@ -6,10 +6,48 @@
 	-- meteor storm
  -- object class 
  	
--- settings
-dbg_start = 1 --startlevel
+-- gameplay tuning: put settings here to try
+-- them out. runs first in _init and
+-- overrides the values further down
+function tune()
+	-- enter_cool=30
+	-- kami_spd=2
+	dbg_start = 1 --startlevel
+--	dbg_keys=true -- debug, pc only:
+               -- k/l level chose
+end
 
-p={x=64-4, y=118, w=1} -- w: weapon
+-- settings
+-- ship at the start of a game (the
+-- current values are in p, see
+-- new_ship). w: weapon 1-3,
+-- shots: magazine size
+ship0={spd=0.8,lives=3,w=1,shots=3,armor=0}
+spd_step=0.2    -- speed extra
+spd_max=2
+shots_max=6     -- bullet extra
+shield_time=600 -- frames of a
+                -- shield extra
+                -- (shield = blinking,
+                -- cannot be hit)
+
+-- extras: an alien that dies drops
+-- one with drop_chance. which one:
+-- by weight wt. fn: what it does
+drop_chance=0.1
+item_spd=0.6    -- px/frame falling
+extra={
+	bullet={s=34,wt=10,fn=function() more_shots() end},
+	speed= {s=35,wt=5, fn=function() p.spd=min(p.spd+spd_step,spd_max) end},
+	shield={s=36,wt=3, fn=function() p.inv=max(p.inv,shield_time) end},
+	single={s=37,wt=2, fn=function() weapon(1) end},
+	double={s=38,wt=2, fn=function() weapon(2) end},
+	triple={s=39,wt=1, fn=function() weapon(3) end},
+	-- todo: what does the scoop do?
+	scoop= {s=40,wt=0, fn=function() end},
+	life=  {s=41,wt=1, fn=function() p.lives+=1 end},
+}
+it={} -- falling extras
 dead_time=90    -- frames until the
                 -- ship comes back
 inv_time=120    -- frames blinking,
@@ -20,10 +58,8 @@ ns=100
 e={}
 ne=10
 b={} --ringbuffer later
--- own shots: magazine, reloads
--- only when empty
-shot_max=3     -- shots in magazine
-               -- (extras: more)
+-- own shots: magazine (p.shots),
+-- reloads only when empty
 reload_time=20 -- frames per shot
 shot_spd=3     -- px/frame
 pb={} -- projectiles of big enemies
@@ -32,8 +68,7 @@ pb={} -- projectiles of big enemies
 -- colors (bright,dark; nil=none)
 eshot={
 	bug={s=51,v=1,aim=true,c1=11,c2=3},
-	-- placeholder: own sprite later
-	mother={s=51,v=1.2,aim=true},
+	mother={s=54,v=1.2,aim=true},
 }
 pt={} -- particles
 eb={} -- enemy bullets
@@ -44,6 +79,9 @@ salvo_max=3     -- shots per salvo
                 -- (1..salvo_max)
 salvo_gap=14    -- frames between
                 -- shots of a salvo
+enter_cool=100   -- frames between
+                -- salvos while flying
+                -- in (+random, 0=none)
 trail_life=15   -- frames a plasma
                 -- particle lives
 
@@ -159,6 +197,7 @@ anim={
 
 
 function _init()
+	tune()
 	pal(4,133,1)
 	-- btnp without auto repeat:
 	-- holding = one shot
@@ -167,9 +206,7 @@ function _init()
 	-- levels later
 	score=0
 	hiscore=0
-	lives=3
-	p.dead,p.inv=0,0
-	ammo=shot_max
+	p=new_ship()
 	reload=0
 	reloading=false
 	-- stars init
@@ -181,6 +218,9 @@ function _init()
 		red=rot_tab(128),blue=rot_tab(160),
 		ufo=rot_tab(176)}
 	stage=dbg_start-1
+	-- devkit: keyboard for debug keys
+	if (dbg_keys) poke(0x5f2d,1)
+	dbg_t=0
 	start_level()
 	_update60=title
 end
@@ -197,12 +237,13 @@ function game()
 	local til=0
 	cls(0)
 	stars()
+	dbg_input()
 	-- ship destroyed: wait, then
 	-- back (or game over)
 	if p.dead>0 then
 		p.dead-=1
 		if p.dead==0 then
-			if lives==0 then
+			if p.lives==0 then
 				_update60=over
 				return
 			end
@@ -210,11 +251,11 @@ function game()
 		end
 	else
 	if(btn(⬅️)) then
-	 p.x=p.x-1	--and > 0
+	 p.x-=p.spd
 	 til=-1
 	end
 	if(btn(➡️)) then
-	 p.x=p.x+1 --and < 128
+	 p.x+=p.spd
 	 til=1
  end
 	-- stay on the screen
@@ -223,20 +264,20 @@ function game()
 	if (btnp(⬆️)) p.w=p.w%#wpn+1
 	-- fire: one shot per press
 	-- while there is ammo
-	if btnp(❎) and ammo>0 then
+	if btnp(❎) and p.ammo>0 then
 		shoot(p.w)
-		ammo-=1
+		p.ammo-=1
 	end
 	end -- ship alive
 	-- empty: reload one shot every
 	-- reload_time frames until full
-	if (ammo==0) reloading=true
+	if (p.ammo==0) reloading=true
 	if reloading then
 		reload+=1
 		if reload>=reload_time then
-			ammo+=1
+			p.ammo+=1
 			reload=0
-			if (ammo==shot_max) reloading=false
+			if (p.ammo>=p.shots) reloading=false
 		end
 	end
  spawn()
@@ -244,6 +285,7 @@ function game()
  plasma()
  ebullets()
 	bullets()
+	items()
 	if p.dead==0 then
 		if p.inv>0 then
 			p.inv-=1
@@ -254,6 +296,11 @@ function game()
 		if (p.dead==0 and p.inv%8<4) spr(19+til,p.x,p.y)
 	end
 	hud()
+	-- after a level switch: number
+	if dbg_t>0 then
+		dbg_t-=1
+		print("stage "..stage,1,1,7)
+	end
 	-- bonus: blinking announcement
 	if lev.bonus and lev.t<bonus_msg and lev.t%30<20 then
 		print("bonus stage",42,50,10)
@@ -263,7 +310,7 @@ function game()
 	-- shots still flying)
 	if #lev.q==0 and #e==0 then
 		lev.done+=1
-		if lev.done>=end_wait and #eb+#pb==0 and p.dead==0 then
+		if lev.done>=end_wait and #eb+#pb+#it==0 and p.dead==0 then
 			hiscore=max(hiscore,score)
 			bt=between_time
 			_update60=between
@@ -465,6 +512,16 @@ end
 -- back: comes in from the top,
 --       steers home, rejoins
 function form_move(o)
+	-- salvo running (dive or flying
+	-- in): next shot
+	if o.burst and o.burst>0 and o.y<p.y then
+		o.bgap-=1
+		if o.bgap<=0 then
+			add(eb,{x=o.x,y=o.y+4,dx=0,dy=eshot_spd})
+			o.burst-=1
+			o.bgap=salvo_gap
+		end
+	end
 	if o.st=="form" then
 		o.x,o.y=slot(o)
 	elseif o.st=="roam" then
@@ -473,6 +530,19 @@ function form_move(o)
 		kami_move(o)
 	elseif o.st=="enter" then
 		fly_path(o)
+		-- shoot while flying in (not
+		-- in bonus stages)
+		if enter_cool>0 and not o.bonus and o.y>4 and o.y<p.y then
+			o.cool-=1
+			if o.cool<=0 then
+				if eshot[o.k] then
+					big_shot(o)
+				else
+					eshoot(o)
+				end
+				o.cool=enter_cool+rnd(enter_cool)
+			end
+		end
 	elseif o.st=="dive" then
 		-- 1. spin out, slowly
 		if o.ph=="spin" then
@@ -502,15 +572,6 @@ function form_move(o)
 				o.lp-=abs(o.curve)
 				-- full circle: dive on
 				if (o.lp<=0) o.ph,o.curve="down",0
-			end
-		end
-		-- salvo running: next shot
-		if o.burst>0 and o.y<p.y then
-			o.bgap-=1
-			if o.bgap<=0 then
-				add(eb,{x=o.x,y=o.y+4,dx=0,dy=eshot_spd})
-				o.burst-=1
-				o.bgap=salvo_gap
 			end
 		end
 		-- out of the screen (any side):
@@ -566,7 +627,9 @@ end
 
 -- ship explodes, one life less
 function die()
-	lives-=1
+	p.lives-=1
+	-- lose one weapon tier
+	p.w=max(1,p.w-1)
 	boom({x=p.x+4,y=p.y+4,an={},k="ship"})
 	p.dead=dead_time
 end
@@ -622,7 +685,65 @@ end
 -- ships left, top right
 function hud()
 	spr(21,112,-1)
-	print(lives,120,1,7)
+	print(p.lives,120,1,7)
+end
+
+-- a new ship from the start
+-- values ship0
+function new_ship()
+	local o={x=60,y=118,dead=0,inv=0}
+	for k,v in pairs(ship0) do o[k]=v end
+	o.ammo=o.shots
+	return o
+end
+
+-- one more shot in the magazine
+function more_shots()
+	p.shots=min(p.shots+1,shots_max)
+end
+
+-- weapon extra: a new weapon is
+-- installed (even a weaker one),
+-- the same one again gives one
+-- more shot in the magazine
+function weapon(w)
+	if p.w==w then
+		more_shots()
+	else
+		p.w=w
+	end
+end
+
+-- maybe drop an extra at x,y:
+-- first the chance for any, then
+-- which one by its weight
+function drop(x,y)
+	if (rnd()>=drop_chance) return
+	local sum=0
+	for k,x2 in pairs(extra) do sum+=x2.wt end
+	local r=rnd(sum)
+	for k,x2 in pairs(extra) do
+		r-=x2.wt
+		if r<0 then
+			add(it,{x=x,y=y,e=x2})
+			return
+		end
+	end
+end
+
+-- extras fall down, the ship
+-- collects them
+function items()
+	for q in all(it) do
+		q.y+=item_spd
+		spr(q.e.s,q.x-4,q.y-4)
+		if p.dead==0 and abs(q.x-p.x-4)<7 and abs(q.y-p.y-4)<7 then
+			q.e.fn()
+			del(it,q)
+		elseif q.y>132 then
+			del(it,q)
+		end
+	end
 end
 
 -- fire weapon w: one bullet per
@@ -658,6 +779,7 @@ function hit(bu)
 			if en.hp<=0 then
 				score+=worth[en.k] or 0
 				if (en.bonus) lev.hits+=1
+				drop(en.x,en.y)
 				boom(en)
 				del(e,en)
 			end
@@ -788,7 +910,7 @@ end
 function start_level()
 	stage+=1
 	lev=load_level(stage)
-	e,pb,eb={},{},{}
+	e,pb,eb,it={},{},{},{}
 	dive_cool=dive_every
 	wave_n=0
 end
@@ -804,7 +926,7 @@ function spawn()
 			local o=obj_new(q.k,pt0[1],pt0[2],
 				rot[q.k] and "dir" or "anim")
 			o.st,o.path,o.seg,o.u="enter",q.st,0,0
-			o.cool=60+rnd(60)
+			o.cool=rnd(enter_cool)+10
 			if q.sl then
 				o.col,o.row=q.sl.col,q.sl.row
 			else
@@ -931,6 +1053,20 @@ function kami_move(o)
 	end
 	-- out at the top: gone
 	if (o.up and o.y<-12) del(e,o)
+end
+
+-- debug keys (devkit, pc only):
+-- k one level back, l one on
+function dbg_input()
+	while dbg_keys and stat(30) do
+		local k=stat(31)
+		if k=="k" or k=="l" then
+			-- start_level counts up
+			if (k=="k") stage=max(0,stage-2)
+			start_level()
+			dbg_t=90
+		end
+	end
 end
 
 -- screen between levels
