@@ -96,7 +96,7 @@ trail_life=15   -- frames a plasma
 -- written by the level editor.
 -- do not paint in the map editor!
 -- enemy kinds by number
-kinds={"red","green","blue","bug","ufo","mother","flym","greenm"}
+kinds={"red","green","blue","bug","ufo","mother","flym","greenm","fly"}
 between_time=150 -- frames of the
                 -- screen between
                 -- levels
@@ -158,19 +158,20 @@ back_spd=1.2    -- px/frame home
 back_turn=0.02  -- max turn/frame
 
 -- weapons: list of projectiles
--- per shot, {sprite,dx,hit width}
--- hit width: half width of the
--- shot (double: two shots in one
--- sprite, so wider)
+-- per shot, {sprite,dx,hit width,
+-- damage}. hit width: half width
+-- of the shot (double: two shots in
+-- one sprite, so wider). damage:
+-- hit points it takes away
 wpn={
-	{{4,0,1}},                        -- single
-	{{5,0,3}},                        -- double
-	{{6,-0.6,1},{6,0,1},{6,0.6,1}},   -- triple
+	{{4,0,1,1}},                          -- single
+	{{5,0,3,2}},                          -- double
+	{{6,-0.6,1,2},{6,0,1,2},{6,0.6,1,2}}, -- triple
 }
 
 -- hit points and score per kind
-hp={red=2,green=1,blue=1,bug=8,ufo=2,mother=8,flym=6,greenm=6}
-worth={red=50,green=40,blue=30,bug=200,ufo=300,mother=500,flym=300,greenm=300}
+hp={red=2,green=1,blue=2,bug=8,ufo=3,mother=12,flym=8,greenm=8,fly=2}
+worth={red=150,green=40,blue=130,bug=200,ufo=300,mother=500,flym=300,greenm=300,fly=60}
 flash_time=4    -- frames white
                 -- after a hit
 -- explosion: sprites 64-68,
@@ -181,7 +182,8 @@ boom_spd=4
 col={ship={7,12},red={8,2},green={11,3},
 	blue={12,1},bug={14,2},
 	ufo={6,13},mother={6,8},
-	flym={12,8},greenm={11,3}}
+	flym={12,8},greenm={11,3},
+	fly={12,8}}
 fx={} -- running explosions
 
 -- animations by time: per frame
@@ -196,6 +198,7 @@ anim={
 	mother={{168,false,false,16},{170,false,false,16},sz=2},
 	flym={{132,false,false,10},{134,false,false,10},sz=2},
 	greenm={{136,false,false,14},{138,false,false,14},sz=2},
+	fly={{140,false,false,8},{141,false,false,8}},
 	coin={{112,false,false,6},{113,false,false,6},
 		{114,false,false,6},{115,false,false,6},
 		{115,false,true,6},{114,false,true,6},
@@ -222,7 +225,7 @@ function _init()
 	-- rotation: 8 directions per kind
 	rot={green=rot_tab(144),
 		red=rot_tab(128),blue=rot_tab(160),
-		ufo=rot_tab(176)}
+		ufo=rot_tab(176),fly=rot_tab(140)}
 	stage=dbg_start-1
 	-- devkit: keyboard for debug keys
 	if (dbg_keys) poke(0x5f2d,1)
@@ -767,7 +770,7 @@ end
 -- sprite and sideways speed
 function shoot(w)
 	for pr in all(wpn[w]) do
-		add(b,{x=p.x,y=p.y-4,s=pr[1],dx=pr[2],w=pr[3]})
+		add(b,{x=p.x,y=p.y-4,s=pr[1],dx=pr[2],w=pr[3],dmg=pr[4]})
 	end
 end
 
@@ -790,7 +793,7 @@ function hit(bu)
 	for en in all(e) do
 		local r=4*(en.an.sz or 1)-1
 		if abs(bx-en.x)<r+bu.w and abs(by-en.y)<r then
-			en.hp-=1
+			en.hp-=bu.dmg
 			en.fl=flash_time
 			if en.hp<=0 then
 				score+=worth[en.k] or 0

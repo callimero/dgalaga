@@ -67,10 +67,10 @@ mit dem Schiff darunter fliegt:
 
 | Extra | Wirkung |
 |---|---|
-| **Bullet** | ein Schuss mehr im Magazin (bis 6) |
+| **Bullet** | eine Ladung mehr im Akku (bis 20) |
 | **Speed** | das Schiff wird schneller (es startet bewusst etwas träge) |
 | **Shield** | 10 Sekunden unverwundbar (blinkend) |
-| **Single / Double / Triple Shot** | installiert diese Waffe – fängt man die Waffe, die man schon hat, gibt es einen Schuss mehr im Magazin |
+| **Single / Double / Triple Shot** | installiert diese Waffe – fängt man die Waffe, die man schon hat, gibt es eine Ladung mehr. Doppelschuss trifft doppelt, jedes Projektil des Dreifachschusses auch |
 | **Extraleben** | ein Schiff mehr |
 
 Wie oft etwas fällt, ist zweistufig geregelt: erst die Chance auf *irgendein*
@@ -121,7 +121,7 @@ Buchstaben E-X-T-R-A und die Totenköpfe folgen.
 - **Bonusrunden** („bonus stage“ blinkt): Aliens kreuzen ohne zu schießen
 - **Kamikaze-Level:** Wellen von Aliens stürzen nebeneinander von oben
   herab, feuern heftig, wenden unten und fliegen wieder hinaus
-- **Gegnerarten:** rot, grün, blau, UFO (kleine Aliens mit Flattern und
+- **Gegnerarten:** rot, grün, blau, UFO, kleine Fliegen (kleine Aliens mit Flattern und
   8 Drehrichtungen), dazu die großen Käfer, Fliegen und Mutterschiffe –
   jede große Art mit eigenem Geschoss (Säure, rote und grüne Kugeln)
 - **Titelbild und Levelansage:** jede Stage wird mit einem eigenen Spruch
