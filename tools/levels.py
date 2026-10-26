@@ -4,9 +4,10 @@ memory 0x2000-0x2fff). Stand-in until the web level editor exists.
 
 Usage:  python3 tools/levels.py dgalaga.p8
 
-Map starts with "DG" and the format version (2), then per level:
+Map starts with "DG" and the format version (3), then per level:
   len (whole level incl. this byte; 0 = end of list)
   type (0 normal, 1 bonus, 2 kamikaze)
+  text length, text (ascii, shown in the announcement)
   kamikaze: only kind, waves (the rest is fixed in the game)
   cols, rows, col spacing px, row spacing px
   per slot (row by row): kind + 16*stream   (kind 0 = empty)
@@ -14,12 +15,13 @@ Map starts with "DG" and the format version (2), then per level:
   per stream: delay/4, gap (frames), speed*16, kind, count
               (kind/count only used in bonus levels),
               segments m, then 1+3m points as x+64, y+64
-kinds: 1 red, 2 green, 3 blue, 4 bug, 5 ufo, 6 mother
+kinds: 1 red, 2 green, 3 blue, 4 bug, 5 ufo, 6 mother, 7 flym, 8 greenm
 """
 import sys
 
-KIND = {'.': 0, 'r': 1, 'g': 2, 'b': 3, 'B': 4, 'u': 5, 'M': 6}
-KIND_NAME = {'red': 1, 'green': 2, 'blue': 3, 'bug': 4, 'ufo': 5, 'mother': 6}
+KIND = {'.': 0, 'r': 1, 'g': 2, 'b': 3, 'B': 4, 'u': 5, 'M': 6, 'F': 7, 'G': 8}
+KIND_NAME = {'red': 1, 'green': 2, 'blue': 3, 'bug': 4, 'ufo': 5, 'mother': 6,
+             'flym': 7, 'greenm': 8}
 
 
 def mirror(pts):
@@ -78,12 +80,17 @@ def coord(v):
     return v
 
 
+def text(lv):
+    t = lv.get('text', '').lower()[:30]
+    return [len(t)] + [ord(c) for c in t]
+
+
 def encode(lv):
     if lv.get('kami'):
         # {'kami': 'green', 'waves': 5}
-        out = [2, KIND_NAME[lv['kami']], lv.get('waves', 5)]
+        out = [2] + text(lv) + [KIND_NAME[lv['kami']], lv.get('waves', 5)]
         return [len(out) + 1] + out
-    out = [1 if lv.get('bonus') else 0]
+    out = [1 if lv.get('bonus') else 0] + text(lv)
     grid = lv.get('grid', [])
     strm = lv.get('stream', [])
     rows = len(grid)
@@ -112,7 +119,7 @@ def encode(lv):
 
 def main():
     path = sys.argv[1]
-    data = [ord('D'), ord('G'), 2]
+    data = [ord('D'), ord('G'), 3]
     for i, lv in enumerate(LEVELS):
         b = encode(lv)
         print('level %d: %d bytes' % (i + 1, len(b)))

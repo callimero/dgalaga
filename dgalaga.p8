@@ -16,19 +16,20 @@ function tune()
 	-- enter_cool=30
 	-- kami_spd=2
 	dbg_start = 1 --startlevel
---	dbg_keys=true -- debug, pc only:
-               -- k/l level chose
+	dbg_keys=true -- debug, pc only:
+               -- k/l level chose, w weapon
 end
 
 -- settings
 -- ship at the start of a game (the
 -- current values are in p, see
 -- new_ship). w: weapon 1-3,
--- shots: magazine size
+-- shots: battery size (charges)
 ship0={spd=0.8,lives=3,w=1,shots=3,armor=0}
 spd_step=0.2    -- speed extra
 spd_max=2
-shots_max=6     -- bullet extra
+shots_max=20    -- battery max
+                -- (bullet extras)
 shield_time=600 -- frames of a
                 -- shield extra
                 -- (shield = blinking,
@@ -61,9 +62,11 @@ ns=100
 e={}
 ne=10
 b={} --ringbuffer later
--- own shots: magazine (p.shots),
--- reloads only when empty
-reload_time=20 -- frames per shot
+-- own shots: like a battery, each
+-- shot takes one charge (p.ammo of
+-- p.shots), it recharges all the
+-- time while not full
+reload_time=5  -- frames per charge
 shot_spd=3     -- px/frame
 pb={} -- projectiles of big enemies
 -- per big kind: sprite, speed,
@@ -72,6 +75,8 @@ pb={} -- projectiles of big enemies
 eshot={
 	bug={s=51,v=1,aim=true,c1=11,c2=3},
 	mother={s=54,v=1.2,aim=true},
+	flym={s=52,v=1.1,aim=true,c1=8,c2=2},
+	greenm={s=51,v=1.1,aim=true,c1=11,c2=3},
 }
 pt={} -- particles
 eb={} -- enemy bullets
@@ -93,13 +98,11 @@ trail_life=15   -- frames a plasma
 -- written by the level editor.
 -- do not paint in the map editor!
 -- enemy kinds by number
-kinds={"red","green","blue","bug","ufo","mother"}
+kinds={"red","green","blue","bug","ufo","mother","flym","greenm"}
 between_time=150 -- frames of the
                 -- screen between
                 -- levels
-bonus_msg=180   -- frames "bonus
-                -- stage" blinks,
-                -- then the ships come
+
 -- kamikaze level: waves of kami_n
 -- aliens dive side by side from
 -- the top (left to right), brake
@@ -119,7 +122,7 @@ kami_brake=0.05 -- slow down/frame
 kami_fan=0.08   -- sideways spread
 kami_cool=20    -- frames between
                 -- shots (+random)
-end_wait=90     -- frames the level
+end_wait=120    -- frames the level
                 -- goes on after the
                 -- last enemy (and no
                 -- enemy shots left)
@@ -168,8 +171,8 @@ wpn={
 }
 
 -- hit points and score per kind
-hp={red=1,green=1,blue=1,bug=5,ufo=1,mother=8}
-worth={red=50,green=40,blue=30,bug=200,ufo=100,mother=500}
+hp={red=2,green=1,blue=1,bug=8,ufo=2,mother=8,flym=6,greenm=6}
+worth={red=50,green=40,blue=30,bug=200,ufo=300,mother=500,flym=300,greenm=300}
 flash_time=4    -- frames white
                 -- after a hit
 -- explosion: sprites 64-68,
@@ -179,7 +182,8 @@ boom_spd=4
 -- {bright,dark}
 col={ship={7,12},red={8,2},green={11,3},
 	blue={12,1},bug={14,2},
-	ufo={6,13},mother={6,8}}
+	ufo={6,13},mother={6,8},
+	flym={12,8},greenm={11,3}}
 fx={} -- running explosions
 
 -- animations by time: per frame
@@ -192,6 +196,8 @@ anim={
 	bug={{164,false,false,12},{166,false,false,12},sz=2},
 	ufo={{176,false,false,20},{177,false,false,20}},
 	mother={{168,false,false,16},{170,false,false,16},sz=2},
+	flym={{132,false,false,10},{134,false,false,10},sz=2},
+	greenm={{136,false,false,14},{138,false,false,14},sz=2},
 	coin={{112,false,false,6},{113,false,false,6},
 		{114,false,false,6},{115,false,false,6},
 		{115,false,true,6},{114,false,true,6},
@@ -211,7 +217,6 @@ function _init()
 	hiscore=0
 	p=new_ship()
 	reload=0
-	reloading=false
 	-- stars init
 	for i=1,ns do
 		add(s,{x=rnd(128),y=rnd(128),z=rnd(10)+2})		
@@ -230,9 +235,13 @@ end
 
 function title()
 	cls(0)
-	print("pico8 deluxe galaga",26,30,10)
-	_update60=game
- if(btnp(❎))  _update60=game
+	stars()
+	print("pico8 deluxe galaga",26,40,10)
+	if (t()%1<0.7) print("press 🅾️ to start",30,70,7)
+	if btnp(🅾️) then
+		bt=between_time
+		_update60=between
+	end
 end
 
 
@@ -263,24 +272,20 @@ function game()
  end
 	-- stay on the screen
 	p.x=mid(0,p.x,120)	
-	-- debug: up = next weapon
-	if (btnp(⬆️)) p.w=p.w%#wpn+1
 	-- fire: one shot per press
-	-- while there is ammo
-	if btnp(❎) and p.ammo>0 then
+	-- while there is charge
+	if btnp(🅾️) and p.ammo>0 then
 		shoot(p.w)
 		p.ammo-=1
 	end
 	end -- ship alive
-	-- empty: reload one shot every
-	-- reload_time frames until full
-	if (p.ammo==0) reloading=true
-	if reloading then
+	-- battery recharges all the time,
+	-- one charge per reload_time
+	if p.ammo<p.shots then
 		reload+=1
 		if reload>=reload_time then
 			p.ammo+=1
 			reload=0
-			if (p.ammo>=p.shots) reloading=false
 		end
 	end
  spawn()
@@ -305,7 +310,7 @@ function game()
 		print("stage "..stage,1,1,7)
 	end
 	-- bonus: blinking announcement
-	if lev.bonus and lev.t<bonus_msg and lev.t%30<20 then
+	if lev.bonus and #e==0 and lev.n==#lev.q and lev.t%30<20 then
 		print("bonus stage",42,50,10)
 	end
 	-- all came and all are gone:
@@ -315,6 +320,10 @@ function game()
 		lev.done+=1
 		if lev.done>=end_wait and #eb+#pb+#it==0 and p.dead==0 then
 			hiscore=max(hiscore,score)
+			-- hits of a bonus/kamikaze level
+			-- for the announcement
+			last=(lev.bonus or lev.kami) and lev or nil
+			start_level()
 			bt=between_time
 			_update60=between
 		end
@@ -329,7 +338,7 @@ function over()
 	local t="score "..score
 	print(t,64-#t*2,66,7)
 	-- restart the cart
-	if (btnp(❎)) run()
+	if (btnp(🅾️)) run()
 end
 -->8
 -- ====== objects ======
@@ -700,7 +709,7 @@ function new_ship()
 	return o
 end
 
--- one more shot in the magazine
+-- one more charge in the battery
 function more_shots()
 	p.shots=min(p.shots+1,shots_max)
 end
@@ -708,7 +717,7 @@ end
 -- weapon extra: a new weapon is
 -- installed (even a weaker one),
 -- the same one again gives one
--- more shot in the magazine
+-- more charge in the battery
 function weapon(w)
 	if p.w==w then
 		more_shots()
@@ -826,9 +835,10 @@ end
 -->8
 -- ====== levels ======
 -- levels in the map: "dg" and
--- format version 2, then per
+-- format version 3, then per
 -- level: len (0=end of list),
--- type (0 normal,1 bonus), cols,
+-- type (0 normal,1 bonus,2 kami),
+-- text length, text chars, cols,
 -- rows, col and row spacing px,
 -- per slot: kind+16*stream,
 -- streams, per stream: delay/4,
@@ -850,10 +860,13 @@ function load_level(n)
 		return peek(a)
 	end
 	local ty=rd()
+	-- free text for the announcement
+	local tx=""
+	for i=1,rd() do tx..=chr(rd()) end
 	-- kamikaze: kind and waves,
 	-- the rest is fixed (settings)
 	if ty==2 then
-		local l={kami=true,q={},t=0,hits=0,done=0,k=kinds[rd()]}
+		local l={kami=true,q={},t=0,hits=0,done=0,k=kinds[rd()],text=tx}
 		-- one entry per wave: center x,
 		-- from left to right
 		local w,m=rd(),(kami_n-1)/2*kami_dx+12
@@ -864,7 +877,7 @@ function load_level(n)
 		return l
 	end
 	local l={bonus=ty==1,c=rd(),r=rd(),
-		dx=rd(),dy=rd(),rc={},
+		dx=rd(),dy=rd(),rc={},text=tx,
 		slots={},q={},t=0,hits=0,n=0,done=0}
 	-- each row centered on its own
 	-- first..last used slot
@@ -894,7 +907,7 @@ function load_level(n)
 		local j=0
 		if l.bonus then
 			for i=1,st.n do
-				add(l.q,{t=bonus_msg+st.delay+j*st.gap,st=st,k=st.k})
+				add(l.q,{t=st.delay+j*st.gap,st=st,k=st.k})
 				j+=1
 			end
 		else
@@ -1059,7 +1072,8 @@ function kami_move(o)
 end
 
 -- debug keys (devkit, pc only):
--- k one level back, l one on
+-- k one level back, l one on,
+-- w next weapon
 function dbg_input()
 	while dbg_keys and stat(30) do
 		local k=stat(31)
@@ -1069,23 +1083,30 @@ function dbg_input()
 			start_level()
 			dbg_t=90
 		end
+		-- w: next weapon
+		if (k=="w") p.w=p.w%#wpn+1
 	end
 end
 
 -- screen between levels
+-- announcement of the next level:
+-- stage, its text, bonus blinks,
+-- hits of the last bonus level
 function between()
 	cls(0)
 	stars()
 	local function mid_print(t,y,c)
 		print(t,64-#t*2,y,c)
 	end
-	mid_print("stage "..stage,40,10)
-	if (lev.bonus or lev.kami) mid_print("hits "..lev.hits.." of "..lev.n,52,11)
-	mid_print("score "..score,64,7)
-	mid_print("hi "..hiscore,74,6)
+	mid_print("stage "..stage,34,10)
+	mid_print(lev.text,44,7)
+	if (lev.bonus and t()%0.5<0.35) mid_print("bonus stage",54,10)
+	if (last) mid_print("hits "..last.hits.." of "..last.n,70,11)
+	mid_print("score "..score,84,7)
+	mid_print("hi "..hiscore,94,6)
 	bt-=1
 	if bt<=0 then
-		start_level()
+		last=nil
 		_update60=game
 	end
 end
@@ -1116,10 +1137,10 @@ bbbbbbbbbbbbbbbb0006600000066000000660000000000000000000000000005655551555555555
 0000000bb00000000000000001111110011111100111111001111110011111100111111001111110011111100111111000000000000000000000000000000000
 0000000000000060000000000000000000000000000000000000000000dddd0000000000000000000000000000bbbb0000000000000000000000000000000000
 000000000000060000060000000000000000000000bbb000000000000dddddd000dddd0000000000000000000bbbbbb000bbbb00000000000000000000000000
-0005000000556000000600000007b0000007b0000b7bbb0000161000dddddddd0dddddd000dddd0000000000bbbbbbbb0bbbbbb000bbbb000000000000000000
-07a66660000650000056500000bbb30000bbb3000bbbb30000666000dddddddddddddddd1dddddd111111111bbbbbbbbbbbbbbbb3bbbbbb33333333300000000
-00050000008050000009000000bb330000bb33000bb3330000161000dddddddd1dddddd101dddd1000000000bbbbbbbb3bbbbbb303bbbb300000000000000000
-0000000007000000000a0000000330000003300000333000000000001dddddd101dddd1000111100000000003bbbbbb303bbbb30003333000000000000000000
+0005000000556000000600000007b0000007e0000b7bbb0000161000dddddddd0dddddd000dddd0000000000bbbbbbbb0bbbbbb000bbbb000000000000000000
+07a66660000650000056500000bbb30000eee8000bbbb30000666000dddddddddddddddd1dddddd111111111bbbbbbbbbbbbbbbb3bbbbbb33333333300000000
+00050000008050000009000000bb330000ee88000bb3330000161000dddddddd1dddddd101dddd1000000000bbbbbbbb3bbbbbb303bbbb300000000000000000
+0000000007000000000a0000000330000008800000333000000000001dddddd101dddd1000111100000000003bbbbbb303bbbb30003333000000000000000000
 0000000000000000000000000000000000000000000000000000000001dddd1000111100000000000000000003bbbb3000333300000000000000000000000000
 00000000000000000000000000000000000000000000000000000000001111000000000000000000000000000033330000000000000000000000000000000000
 00000000000000000000000000000900000009000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
@@ -1317,10 +1338,13 @@ __label__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 
 __map__
-44470247000c03090b120012001200002200220022001200120012220022002200120012001200002200220022020008180000015438548a62a37475000818000001ad38ad8a9ba389755f000c040a0c121212120000000022222222120000120012220022000022120000120000000022000022001212000000000000222200
-0200071a00000264326566618e72897d867b7b7c6a00071a0000029b329a669e8e8d898286847b836a61000504150c1222543242122200324212220032421222003242050008180108015736574c576c5884000818010801a836a84ca86ca7840008180108016a396a4f6a796b8e0008180108019539954f9579948e08081801
-0801812b75388b557d6e040202053f0006030e0c151515151515151515151515151515151515010008180108053b364e504c927c9b9fa4af83a26d94546a616a756a897d918a8c97879c71836a530008030c0a1515151525252525151515152525252515151515252525250200081801080336974f8b646b8470a27b98a77aa5
-61a357797870000818010803c997b08b9b6b7b705d7b67a785a59ea3a87987709f0008030b0a151525254545353515152525454535351515252545453535040008180108044ec64ead4e9e4e884e7269726986699a4e994f894f7a586e5d6a0008180108047cc67cad7c9e7c887c7261726186619a7c997b897b7a726e6d6a00
-0818010804b5c5b5acb59db587b5719a719a859a99b598b488b479ab6da66900081801080486c686ad869e86888672a172a186a19a86998789877a906e956a8b000c04090a1515153535352525254545451515153535352525254545451515153535352525254545450000000000566600000000000600081801080158c658b5
-589558870008180108018ec68eb58e958e8700081801080171c671b571957187000818010801a7c6a7b5a795a7870f0818010801a72e9c418a3f84580f08180108015b2e6037445669632f0100000e0c02000818050a027f2d7e54456966838097baadbad2000818050a02802d8154ba6999837f9745ad45d23b0008030b0c12
-1212122222222212121212222222221212121222222222020008180000017034708646a058720a08180000018f348f86b9a0a77200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+4447035a00126475636b20746f20746865207369646573210c03090b120012001200002200220022001200120012220022002200120012001200002200220022020008180000015438548a62a37475000818000001ad38ad8a9ba389756f000f6c6f6f6b20696e206d7920657965730c040a0c12121212000000002222222212
+00001200122200220000221200001200000000220000220012120000000000002222000200071a00000264326566618e72897d867b7b7c6a00071a0000029b329a669e8e8d898286847b836a6a000862696720626f73730504150c1222113242122200324212220032421222543242050008180108015736574c576c58840008
+18010801a836a84ca86ca7840008180108016a396a4f6a796b8e0008180108019539954f9579948e080818010801812b75388b557d6e17021266726f6d206c65667420746f20726967687402058300037570210e0408080000001100000000000021000000000011001100000000210021000000110011001100002100210021
+0011000011000011210000210000210200081801080464384c64659f797a82664e5f628c70aa49ad4b9948884464565c0008180108049b38b364989b867a7d66b15f9d8c8faab6adb499b788bb64a95c63000009030c0c1111111100212121211111111100212121210011110000002121000200081801080471327132713271
+557182719071a471b851bf529f52897e798f700008180108048e328e328e328e558e828e908ea48eb8aebfad9fad89817970704f0016697473206120747261702e206120666c79747261702e05030e0c111111000011111100271111110000020008180108026834516661967c919e8b926b855d0a081801080198349872b69a
+807240000006030e0c151515151515151515151515151515151515010008180108053b364e504c927c9b9fa4af83a26d94546a616a756a897d918a8c97879c71836a54000008030c0a1515151525252525151515152525252515151515252525250200081801080336974f8b646b8470a27b98a77aa561a35779787000081801
+0803c997b08b9b6b7b705d7b67a785a59ea3a8798770a0000008030b0a151525254545353515152525454535351515252545453535040008180108044ec64ead4e9e4e884e7269726986699a4e994f894f7a586e5d6a0008180108047cc67cad7c9e7c887c7261726186619a7c997b897b7a726e6d6a000818010804b5c5b5ac
+b59db587b5719a719a859a99b598b488b479ab6da66900081801080486c686ad869e86888672a172a186a19a86998789877a906e956a8c00000c04090a1515153535352525254545451515153535352525254545451515153535352525254545450000000000566600000000000600081801080158c658b55895588700081801
+08018ec68eb58e958e8700081801080171c671b571957187000818010801a7c6a7b5a795a7870f0818010801a72e9c418a3f84580f08180108015b2e60374456696330010000000e0c02000818050a027f2d7e54456966838097baadbad2000818050a02802d8154ba6999837f9745ad45d23c000008030b0c12121212222222
+2212121212222222221212121222222222020008180000017034708646a058720a08180000018f348f86b9a0a77200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000

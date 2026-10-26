@@ -71,6 +71,7 @@ code { background:#2a2e37; padding:0 3px; border-radius:3px; }
       </div>
       <div class="row"><span class="field"><label>type</label>
         <select id="ltype"><option value="0">normal</option><option value="1">bonus stage</option><option value="2">kamikaze</option></select></span></div>
+      <div class="row"><span class="field" style="width:100%"><label>text</label><input id="ltext" maxlength="30" style="flex:1" placeholder="shown before the level"></span></div>
       <div id="kamiBox">
         <div class="row brush" id="kkind"></div>
         <div class="row">
@@ -128,12 +129,12 @@ code { background:#2a2e37; padding:0 3px; border-radius:3px; }
 <script>
 // ===================== CORE START =====================
 // cart text <-> data, level format (same as tools/levels.py):
-// map starts with "DG" + version 2, then per level:
-// len, type, cols, rows, dx, dy, slots (kind+16*stream),
+// map starts with "DG" + version 3, then per level:
+// len, type, text length, text, cols, rows, dx, dy, slots (kind+16*stream),
 // streams: delay/4, gap, speed*16, kind, count, segments, points
 const PAL=['#000000','#1d2b53','#7e2553','#008751','#ab5236','#5f574f','#c2c3c7','#fff1e8',
   '#ff004d','#ffa300','#ffec27','#00e436','#29adff','#83769c','#ff77a8','#ffccaa'];
-const MAGIC=[0x44,0x47], VERSION=2;
+const MAGIC=[0x44,0x47], VERSION=3;
 
 function section(text,name){
   const L=text.split('\n'); const i=L.indexOf('__'+name+'__');
@@ -184,12 +185,14 @@ function readMapBytes(text){
 
 // returns {levels, version}; version 1 = old format without header
 function decodeLevels(b,defDx=14,defDy=12){
-  const v2=b[0]==MAGIC[0]&&b[1]==MAGIC[1];
+  const v2=b[0]==MAGIC[0]&&b[1]==MAGIC[1], ver=v2?b[2]:1;
   const lv=[]; let a=v2?3:0;
   while(a<4096 && b[a]>0){
     const end=a+b[a]; let p=a+1; const rd=()=>b[p++];
     const t=rd();
-    const L={bonus:t==1,kami:t==2,cols:0,rows:0,dx:defDx,dy:defDy,grid:[],streams:[],kind:1,waves:5};
+    const L={bonus:t==1,kami:t==2,cols:0,rows:0,dx:defDx,dy:defDy,grid:[],streams:[],kind:1,waves:5,text:''};
+    // version 3: text for the announcement
+    if(ver>=3){ const n=rd(); for(let i=0;i<n;i++) L.text+=String.fromCharCode(rd()); }
     // kamikaze: only kind and waves
     if(L.kami){ L.kind=rd(); L.waves=rd(); L.cols=5; L.rows=3; L.grid=emptyGrid(5,3); lv.push(L); a=end; continue; }
     L.cols=rd(); L.rows=rd();
@@ -205,13 +208,15 @@ function decodeLevels(b,defDx=14,defDy=12){
     if(L.bonus && !L.rows){ L.cols=5; L.rows=3; L.grid=emptyGrid(5,3); }
     lv.push(L); a=end;
   }
-  return {levels:lv,version:v2?b[2]:(lv.length?1:0)};
+  return {levels:lv,version:v2?ver:(lv.length?1:0)};
 }
 function emptyGrid(c,r){ const g=[]; for(let y=0;y<r;y++){ const row=[]; for(let x=0;x<c;x++) row.push({k:0,st:1}); g.push(row); } return g; }
 
+// text: lower case (pico-8 shows it as capitals), max 30 chars
+const textBytes=t=>{ const s=(t||'').toLowerCase().slice(0,30); return [s.length,...[...s].map(c=>c.charCodeAt(0)&255)]; };
 function encodeLevel(L){
-  if(L.kami){ const k=[2,L.kind|0,L.waves|0]; k.unshift(k.length+1); return k; }
-  const o=[L.bonus?1:0, L.bonus?0:L.cols, L.bonus?0:L.rows, L.dx, L.dy];
+  if(L.kami){ const k=[2,...textBytes(L.text),L.kind|0,L.waves|0]; k.unshift(k.length+1); return k; }
+  const o=[L.bonus?1:0, ...textBytes(L.text), L.bonus?0:L.cols, L.bonus?0:L.rows, L.dx, L.dy];
   if(!L.bonus) for(let r=0;r<L.rows;r++) for(let c=0;c<L.cols;c++){
     const s=L.grid[r][c]; o.push(s.k? s.k+16*s.st : 0); }
   o.push(L.streams.length);
@@ -335,7 +340,7 @@ function kindIcon(k,px){ const c=document.createElement('canvas'); const w=C.siz
 // ---------- level helpers ----------
 const L=()=>levels[cur];
 function emptyLevel(){
-  return {bonus:false,kami:false,kind:1,waves:5,cols:5,rows:3,dx:C.form_dx,dy:C.form_dy,grid:emptyGrid(5,3),streams:[newStream(0)]};
+  return {bonus:false,kami:false,text:'',kind:1,waves:5,cols:5,rows:3,dx:C.form_dx,dy:C.form_dy,grid:emptyGrid(5,3),streams:[newStream(0)]};
 }
 function newStream(i){
   const x=[40,88,64,24,104,52][i%6];
@@ -471,12 +476,14 @@ function updateLevelList(){
     const n=Lv.streams.length;
     li.innerHTML='Level '+(i+1)+'<span>'+(Lv.kami? 'kamikaze, '+aliensOf(Lv)+' '+C.kinds[Lv.kind-1]
       : (Lv.bonus?'bonus, ':'')+aliensOf(Lv)+' aliens, '+n+' stream'+(n==1?'':'s'))+'</span>';
+    if(Lv.text) li.title=Lv.text;
     li.onclick=()=>{ cur=i; selStream=0; preview=null; refresh(); };
     ul.appendChild(li);
   });
 }
 function updateSettings(){
   $('ltype').value=L().kami?2:L().bonus?1:0;
+  if(document.activeElement!==$('ltext')) $('ltext').value=L().text||'';
   $('kamiBox').style.display=L().kami?'':'none';
   $('stSec').style.display=L().kami?'none':'';
   kindPicker($('kkind'),L().kind,k=>{ snapshot(); L().kind=k; refresh(); });
@@ -616,6 +623,8 @@ function updateSaveInfo(){
 function refresh(){ updateLevelList(); updateSettings(); updateBrush(); if(!L().bonus&&!L().kami) updateGrid(); if(!L().kami) updateStreams(); updateBytes(); updateSaveInfo(); }
 
 // ---------- level settings ----------
+$('ltext').oninput=e=>{ L().text=e.target.value.toLowerCase().slice(0,30); updateBytes(); updateLevelList(); };
+$('ltext').onfocus=()=>snapshot();
 $('ltype').onchange=e=>{ snapshot(); const t=+e.target.value; L().bonus=t==1; L().kami=t==2;
   if(!L().kami && !L().streams.length) L().streams.push(newStream(0)); preview=null; refresh(); };
 $('kwaves').onchange=e=>{ snapshot(); L().waves=Math.max(1,Math.min(8,+e.target.value)); refresh(); };
@@ -688,7 +697,7 @@ function loadText(text,name){
   levels=d.levels; if(!levels.length) levels=[emptyLevel()];
   cur=0; selStream=0; undo=[]; preview=null;
   $('cartinfo').innerHTML=name+' – '+levels.length+' levels'
-    +(d.version==1?' <span class="warn">(old format, converted on save)</span>':'');
+    +(d.version>0&&d.version<VERSION?' <span class="warn">(older format v'+d.version+', converted on save)</span>':'');
   refresh();
 }
 async function openHandle(h){

@@ -80,7 +80,7 @@ Buchstaben E-X-T-R-A und die Totenköpfe folgen.
   einer (Festhalten feuert nicht automatisch). Erst wenn es leer ist, lädt
   es nach – also gut haushalten.
 - **Waffen:** Einzel-, Doppel- und Dreifachschuss; der Dreifachschuss
-  fächert auseinander. Kommen als Extras, zum Testen mit ⬆️ umschaltbar.
+  fächert auseinander. Kommen als Extras.
 - **Gegner als Objekte** mit drei Arten der Darstellung:
   - Flattern in der Formation (Bilder nach Zeit, jeder Gegner mit eigenem
     Takt und Startbild, damit die Formation nicht im Gleichschritt flattert)
@@ -114,7 +114,12 @@ Buchstaben E-X-T-R-A und die Totenköpfe folgen.
 - **Kamikaze-Level:** Wellen von Aliens stürzen nebeneinander von oben
   herab, feuern heftig, wenden unten und fliegen wieder hinaus
 - **Gegnerarten:** rot, grün, blau, UFO (kleine Aliens mit Flattern und
-  8 Drehrichtungen), dazu die großen Käfer und Mutterschiffe
+  8 Drehrichtungen), dazu die großen Käfer, Fliegen und Mutterschiffe –
+  jede große Art mit eigenem Geschoss (Säure, rote und grüne Kugeln)
+- **Titelbild und Levelansage:** jede Stage wird mit einem eigenen Spruch
+  angekündigt („its a trap. a flytrap.“), Bonusrunden blinken schon dort
+- **Akku statt Magazin:** jeder Schuss kostet eine Ladung, der Akku lädt
+  ständig nach (bis 20 Ladungen mit Bullet-Extras)
 - **Levelübergang** mit Stage, Punkten und Highscore; nach dem letzten
   Abschuss läuft das Level noch kurz weiter
 - Lebensanzeige oben rechts (Punkte und Highscore kommen zwischen den Leveln)
@@ -132,10 +137,12 @@ Buchstaben E-X-T-R-A und die Totenköpfe folgen.
 | Taste | Funktion |
 |---|---|
 | ⬅️ ➡️ | fliegen |
-| ❎ | schießen |
-| ⬆️ | Waffe wechseln (nur zum Testen) |
+| 🅾️ | schießen, auf dem Titel: Start |
 
-Im Browser: Pfeiltasten, **X** schießt.
+Im Browser: Pfeiltasten, **Z** (oder C/N) schießt.
+
+**Betatest – Debug-Tasten** (nur am PC/im Browser): **K**/**L** ein Level
+zurück/vor, **W** nächste Waffe.
 
 ## Dateien
 

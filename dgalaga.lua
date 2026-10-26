@@ -13,19 +13,20 @@ function tune()
 	-- enter_cool=30
 	-- kami_spd=2
 	dbg_start = 1 --startlevel
---	dbg_keys=true -- debug, pc only:
-               -- k/l level chose
+	dbg_keys=true -- debug, pc only:
+               -- k/l level chose, w weapon
 end
 
 -- settings
 -- ship at the start of a game (the
 -- current values are in p, see
 -- new_ship). w: weapon 1-3,
--- shots: magazine size
+-- shots: battery size (charges)
 ship0={spd=0.8,lives=3,w=1,shots=3,armor=0}
 spd_step=0.2    -- speed extra
 spd_max=2
-shots_max=6     -- bullet extra
+shots_max=20    -- battery max
+                -- (bullet extras)
 shield_time=600 -- frames of a
                 -- shield extra
                 -- (shield = blinking,
@@ -58,9 +59,11 @@ ns=100
 e={}
 ne=10
 b={} --ringbuffer later
--- own shots: magazine (p.shots),
--- reloads only when empty
-reload_time=20 -- frames per shot
+-- own shots: like a battery, each
+-- shot takes one charge (p.ammo of
+-- p.shots), it recharges all the
+-- time while not full
+reload_time=5  -- frames per charge
 shot_spd=3     -- px/frame
 pb={} -- projectiles of big enemies
 -- per big kind: sprite, speed,
@@ -69,6 +72,8 @@ pb={} -- projectiles of big enemies
 eshot={
 	bug={s=51,v=1,aim=true,c1=11,c2=3},
 	mother={s=54,v=1.2,aim=true},
+	flym={s=52,v=1.1,aim=true,c1=8,c2=2},
+	greenm={s=51,v=1.1,aim=true,c1=11,c2=3},
 }
 pt={} -- particles
 eb={} -- enemy bullets
@@ -90,13 +95,11 @@ trail_life=15   -- frames a plasma
 -- written by the level editor.
 -- do not paint in the map editor!
 -- enemy kinds by number
-kinds={"red","green","blue","bug","ufo","mother"}
+kinds={"red","green","blue","bug","ufo","mother","flym","greenm"}
 between_time=150 -- frames of the
                 -- screen between
                 -- levels
-bonus_msg=180   -- frames "bonus
-                -- stage" blinks,
-                -- then the ships come
+
 -- kamikaze level: waves of kami_n
 -- aliens dive side by side from
 -- the top (left to right), brake
@@ -116,7 +119,7 @@ kami_brake=0.05 -- slow down/frame
 kami_fan=0.08   -- sideways spread
 kami_cool=20    -- frames between
                 -- shots (+random)
-end_wait=90     -- frames the level
+end_wait=120    -- frames the level
                 -- goes on after the
                 -- last enemy (and no
                 -- enemy shots left)
@@ -165,8 +168,8 @@ wpn={
 }
 
 -- hit points and score per kind
-hp={red=1,green=1,blue=1,bug=5,ufo=1,mother=8}
-worth={red=50,green=40,blue=30,bug=200,ufo=100,mother=500}
+hp={red=2,green=1,blue=1,bug=8,ufo=2,mother=8,flym=6,greenm=6}
+worth={red=50,green=40,blue=30,bug=200,ufo=300,mother=500,flym=300,greenm=300}
 flash_time=4    -- frames white
                 -- after a hit
 -- explosion: sprites 64-68,
@@ -176,7 +179,8 @@ boom_spd=4
 -- {bright,dark}
 col={ship={7,12},red={8,2},green={11,3},
 	blue={12,1},bug={14,2},
-	ufo={6,13},mother={6,8}}
+	ufo={6,13},mother={6,8},
+	flym={12,8},greenm={11,3}}
 fx={} -- running explosions
 
 -- animations by time: per frame
@@ -189,6 +193,8 @@ anim={
 	bug={{164,false,false,12},{166,false,false,12},sz=2},
 	ufo={{176,false,false,20},{177,false,false,20}},
 	mother={{168,false,false,16},{170,false,false,16},sz=2},
+	flym={{132,false,false,10},{134,false,false,10},sz=2},
+	greenm={{136,false,false,14},{138,false,false,14},sz=2},
 	coin={{112,false,false,6},{113,false,false,6},
 		{114,false,false,6},{115,false,false,6},
 		{115,false,true,6},{114,false,true,6},
@@ -208,7 +214,6 @@ function _init()
 	hiscore=0
 	p=new_ship()
 	reload=0
-	reloading=false
 	-- stars init
 	for i=1,ns do
 		add(s,{x=rnd(128),y=rnd(128),z=rnd(10)+2})		
@@ -227,9 +232,13 @@ end
 
 function title()
 	cls(0)
-	print("pico8 deluxe galaga",26,30,10)
-	_update60=game
- if(btnp(❎))  _update60=game
+	stars()
+	print("pico8 deluxe galaga",26,40,10)
+	if (t()%1<0.7) print("press 🅾️ to start",30,70,7)
+	if btnp(🅾️) then
+		bt=between_time
+		_update60=between
+	end
 end
 
 
@@ -260,24 +269,20 @@ function game()
  end
 	-- stay on the screen
 	p.x=mid(0,p.x,120)	
-	-- debug: up = next weapon
-	if (btnp(⬆️)) p.w=p.w%#wpn+1
 	-- fire: one shot per press
-	-- while there is ammo
-	if btnp(❎) and p.ammo>0 then
+	-- while there is charge
+	if btnp(🅾️) and p.ammo>0 then
 		shoot(p.w)
 		p.ammo-=1
 	end
 	end -- ship alive
-	-- empty: reload one shot every
-	-- reload_time frames until full
-	if (p.ammo==0) reloading=true
-	if reloading then
+	-- battery recharges all the time,
+	-- one charge per reload_time
+	if p.ammo<p.shots then
 		reload+=1
 		if reload>=reload_time then
 			p.ammo+=1
 			reload=0
-			if (p.ammo>=p.shots) reloading=false
 		end
 	end
  spawn()
@@ -302,7 +307,7 @@ function game()
 		print("stage "..stage,1,1,7)
 	end
 	-- bonus: blinking announcement
-	if lev.bonus and lev.t<bonus_msg and lev.t%30<20 then
+	if lev.bonus and #e==0 and lev.n==#lev.q and lev.t%30<20 then
 		print("bonus stage",42,50,10)
 	end
 	-- all came and all are gone:
@@ -312,6 +317,10 @@ function game()
 		lev.done+=1
 		if lev.done>=end_wait and #eb+#pb+#it==0 and p.dead==0 then
 			hiscore=max(hiscore,score)
+			-- hits of a bonus/kamikaze level
+			-- for the announcement
+			last=(lev.bonus or lev.kami) and lev or nil
+			start_level()
 			bt=between_time
 			_update60=between
 		end
@@ -326,7 +335,7 @@ function over()
 	local t="score "..score
 	print(t,64-#t*2,66,7)
 	-- restart the cart
-	if (btnp(❎)) run()
+	if (btnp(🅾️)) run()
 end
 -->8
 -- ====== objects ======
@@ -697,7 +706,7 @@ function new_ship()
 	return o
 end
 
--- one more shot in the magazine
+-- one more charge in the battery
 function more_shots()
 	p.shots=min(p.shots+1,shots_max)
 end
@@ -705,7 +714,7 @@ end
 -- weapon extra: a new weapon is
 -- installed (even a weaker one),
 -- the same one again gives one
--- more shot in the magazine
+-- more charge in the battery
 function weapon(w)
 	if p.w==w then
 		more_shots()
@@ -823,9 +832,10 @@ end
 -->8
 -- ====== levels ======
 -- levels in the map: "dg" and
--- format version 2, then per
+-- format version 3, then per
 -- level: len (0=end of list),
--- type (0 normal,1 bonus), cols,
+-- type (0 normal,1 bonus,2 kami),
+-- text length, text chars, cols,
 -- rows, col and row spacing px,
 -- per slot: kind+16*stream,
 -- streams, per stream: delay/4,
@@ -847,10 +857,13 @@ function load_level(n)
 		return peek(a)
 	end
 	local ty=rd()
+	-- free text for the announcement
+	local tx=""
+	for i=1,rd() do tx..=chr(rd()) end
 	-- kamikaze: kind and waves,
 	-- the rest is fixed (settings)
 	if ty==2 then
-		local l={kami=true,q={},t=0,hits=0,done=0,k=kinds[rd()]}
+		local l={kami=true,q={},t=0,hits=0,done=0,k=kinds[rd()],text=tx}
 		-- one entry per wave: center x,
 		-- from left to right
 		local w,m=rd(),(kami_n-1)/2*kami_dx+12
@@ -861,7 +874,7 @@ function load_level(n)
 		return l
 	end
 	local l={bonus=ty==1,c=rd(),r=rd(),
-		dx=rd(),dy=rd(),rc={},
+		dx=rd(),dy=rd(),rc={},text=tx,
 		slots={},q={},t=0,hits=0,n=0,done=0}
 	-- each row centered on its own
 	-- first..last used slot
@@ -891,7 +904,7 @@ function load_level(n)
 		local j=0
 		if l.bonus then
 			for i=1,st.n do
-				add(l.q,{t=bonus_msg+st.delay+j*st.gap,st=st,k=st.k})
+				add(l.q,{t=st.delay+j*st.gap,st=st,k=st.k})
 				j+=1
 			end
 		else
@@ -1056,7 +1069,8 @@ function kami_move(o)
 end
 
 -- debug keys (devkit, pc only):
--- k one level back, l one on
+-- k one level back, l one on,
+-- w next weapon
 function dbg_input()
 	while dbg_keys and stat(30) do
 		local k=stat(31)
@@ -1066,23 +1080,30 @@ function dbg_input()
 			start_level()
 			dbg_t=90
 		end
+		-- w: next weapon
+		if (k=="w") p.w=p.w%#wpn+1
 	end
 end
 
 -- screen between levels
+-- announcement of the next level:
+-- stage, its text, bonus blinks,
+-- hits of the last bonus level
 function between()
 	cls(0)
 	stars()
 	local function mid_print(t,y,c)
 		print(t,64-#t*2,y,c)
 	end
-	mid_print("stage "..stage,40,10)
-	if (lev.bonus or lev.kami) mid_print("hits "..lev.hits.." of "..lev.n,52,11)
-	mid_print("score "..score,64,7)
-	mid_print("hi "..hiscore,74,6)
+	mid_print("stage "..stage,34,10)
+	mid_print(lev.text,44,7)
+	if (lev.bonus and t()%0.5<0.35) mid_print("bonus stage",54,10)
+	if (last) mid_print("hits "..last.hits.." of "..last.n,70,11)
+	mid_print("score "..score,84,7)
+	mid_print("hi "..hiscore,94,6)
 	bt-=1
 	if bt<=0 then
-		start_level()
+		last=nil
 		_update60=game
 	end
 end
