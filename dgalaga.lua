@@ -15,6 +15,7 @@ function tune()
 	dbg_start = 1 --startlevel
 	dbg_keys=true -- debug, pc only:
                -- k/l level chose, w weapon
+	reload_time = 10
 end
 
 -- settings
@@ -230,12 +231,18 @@ function _init()
 	_update60=title
 end
 
+-- both buttons fire (keyboard
+-- layouts, pads, handhelds)
+function fire()
+	return btnp(🅾️) or btnp(❎)
+end
+
 function title()
 	cls(0)
 	stars()
 	print("pico8 deluxe galaga",26,40,10)
-	if (t()%1<0.7) print("press 🅾️ to start",30,70,7)
-	if btnp(🅾️) then
+	if (t()%1<0.7) print("press 🅾️/❎ to start",22,70,7)
+	if fire() then
 		bt=between_time
 		_update60=between
 	end
@@ -271,7 +278,7 @@ function game()
 	p.x=mid(0,p.x,120)	
 	-- fire: one shot per press
 	-- while there is charge
-	if btnp(🅾️) and p.ammo>0 then
+	if fire() and p.ammo>0 then
 		shoot(p.w)
 		p.ammo-=1
 	end
@@ -335,7 +342,7 @@ function over()
 	local t="score "..score
 	print(t,64-#t*2,66,7)
 	-- restart the cart
-	if (btnp(🅾️)) run()
+	if (fire()) run()
 end
 -->8
 -- ====== objects ======

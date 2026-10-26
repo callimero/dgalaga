@@ -145,9 +145,9 @@ Buchstaben E-X-T-R-A und die Totenköpfe folgen.
 | Taste | Funktion |
 |---|---|
 | ⬅️ ➡️ | fliegen |
-| 🅾️ | schießen, auf dem Titel: Start |
+| 🅾️ oder ❎ | schießen, auf dem Titel: Start |
 
-Im Browser: Pfeiltasten, **Z** (oder C/N) schießt.
+Im Browser: Pfeiltasten, **Z** oder **X** schießt (auch C/V/N/M).
 
 **Betatest – Debug-Tasten** (nur am PC/im Browser): **K**/**L** ein Level
 zurück/vor, **W** nächste Waffe.
