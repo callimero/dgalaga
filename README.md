@@ -126,6 +126,8 @@ Buchstaben E-X-T-R-A und die Totenköpfe folgen.
   jede große Art mit eigenem Geschoss (Säure, rote und grüne Kugeln)
 - **Titelbild und Levelansage:** jede Stage wird mit einem eigenen Spruch
   angekündigt („its a trap. a flytrap.“), Bonusrunden blinken schon dort
+- **Sound:** Kanone, Alien-Schüsse, trudelnde Aliens, Extras und
+  Explosionen
 - **Akku statt Magazin:** jeder Schuss kostet eine Ladung, der Akku lädt
   ständig nach (bis 20 Ladungen mit Bullet-Extras)
 - **Levelübergang** mit Stage, Punkten und Highscore; nach dem letzten

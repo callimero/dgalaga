@@ -448,6 +448,7 @@ function big_shot(o)
 	local w=eshot[o.k]
 	local a=0.75
 	if (w.aim) a=atan2(p.x+4-o.x,p.y+4-o.y)
+	sfx(1,1)
 	add(pb,{x=o.x,y=o.y+6,s=w.s,
 		dx=cos(a)*w.v,dy=sin(a)*w.v,
 		c1=w.c1,c2=w.c2})
@@ -518,6 +519,7 @@ function start_dive()
 		-- spins out of the formation,
 		-- phases: see form_move
 		o.st,o.ph,o.mode="dive","spin","spin"
+		sfx(2,2)
 		o.a,o.v,o.rate=0.75,spin_spd,dive_spin
 		o.spin=dive_turns+rnd(0.5)
 		o.curve,o.burst=0,0
@@ -537,6 +539,7 @@ function form_move(o)
 		o.bgap-=1
 		if o.bgap<=0 then
 			add(eb,{x=o.x,y=o.y+4,dx=0,dy=eshot_spd})
+			sfx(1,1)
 			o.burst-=1
 			o.bgap=salvo_gap
 		end
@@ -646,6 +649,7 @@ end
 
 -- ship explodes, one life less
 function die()
+	sfx(7,0)
 	p.lives-=1
 	-- lose one weapon tier
 	p.w=max(1,p.w-1)
@@ -758,6 +762,7 @@ function items()
 		spr(q.e.s,q.x-4,q.y-4)
 		if p.dead==0 and abs(q.x-p.x-4)<7 and abs(q.y-p.y-4)<7 then
 			q.e.fn()
+			sfx(3,3)
 			del(it,q)
 		elseif q.y>132 then
 			del(it,q)
@@ -768,7 +773,12 @@ end
 -- fire weapon w: one bullet per
 -- projectile, each keeps its
 -- sprite and sideways speed
+-- sounds: 0 ship gun, 1 alien
+-- shot, 2 alien dives, 3 extra,
+-- 4 money, 5 scoop (later),
+-- 6 alien explodes, 7 ship explodes
 function shoot(w)
+	sfx(0,0)
 	for pr in all(wpn[w]) do
 		add(b,{x=p.x,y=p.y-4,s=pr[1],dx=pr[2],w=pr[3],dmg=pr[4]})
 	end
@@ -799,6 +809,7 @@ function hit(bu)
 				score+=worth[en.k] or 0
 				if (en.bonus) lev.hits+=1
 				drop(en.x,en.y)
+				sfx(6)
 				boom(en)
 				del(e,en)
 			end
@@ -1072,6 +1083,7 @@ function kami_move(o)
 	o.cool-=1
 	if o.cool<=0 and o.y<p.y-8 then
 		add(eb,{x=o.x,y=o.y+4,dx=0,dy=eshot_spd})
+		sfx(1,1)
 		o.cool=kami_cool+rnd(kami_cool)
 	end
 	-- out at the top: gone
