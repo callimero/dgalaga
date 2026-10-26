@@ -54,6 +54,8 @@ code { background:#2a2e37; padding:0 3px; border-radius:3px; }
   <input type="file" id="file" accept=".p8" hidden>
   <button id="save" disabled>Save to cart</button>
   <button id="bdir">Backup folder …</button>
+  <button id="online" title="load the published cart from this site – no PICO-8 needed">Load online cart</button>
+  <button id="dl" disabled title="download the cart with your levels (to share them)">Download cart</button>
   <span class="info" id="cartinfo">no cart loaded</span>
   <span class="info" id="bytes"></span>
 </header>
@@ -85,6 +87,7 @@ code { background:#2a2e37; padding:0 3px; border-radius:3px; }
       <p class="hint" id="saveinfo"></p>
       <p class="hint">Workflow: save in PICO-8 → edit here → save → <code>load dgalaga</code> in PICO-8. Saving in PICO-8 with an old cart in memory overwrites the levels.</p>
       <p class="hint">Levels live in map rows 0–31. Do not paint there in the PICO-8 map editor.</p>
+      <p class="hint"><b>No PICO-8?</b> "Load online cart", build levels, "▶ Play in browser" (opens the game with your levels in a new tab; works on the web site, not from a local file). "Download cart" saves the cart with your levels to share them.</p>
     </section>
   </div>
 
@@ -93,6 +96,8 @@ code { background:#2a2e37; padding:0 3px; border-radius:3px; }
       <div class="row">
         <button id="play" class="primary">▶ Preview</button>
         <button id="stop">■ Stop</button>
+        <button id="pb" disabled title="play the online game with these levels in a new tab">▶ Play in browser</button>
+        <label title="your selected level comes first"><input type="checkbox" id="fromHere" checked> from this level</label>
         <label><input type="checkbox" id="sway" checked> sway</label>
         <label><input type="checkbox" id="showSlots" checked> slots</label>
         <span class="hint" id="time"></span>
@@ -611,6 +616,7 @@ function updateBytes(){
   $('bytes').innerHTML=bytes.length+' of 4096 bytes'+(big.length?' <span class="warn">– too big: '+big.join(', ')+' (max. 255)</span>':'')
     +(bytes.length>4096?' <span class="warn">– map full!</span>':'');
   $('save').disabled=!cartText||big.length>0||bytes.length>4096;
+  $('dl').disabled=$('pb').disabled=$('save').disabled;
 }
 function updateSaveInfo(){
   const t=[];
@@ -746,6 +752,43 @@ $('save').onclick=async()=>{
     a.download=cartName||'dgalaga.p8'; a.click();
     $('cartinfo').textContent=cartName+' downloaded – move it to the carts folder, then load it in PICO-8';
   }
+};
+
+// ---------- no PICO-8 needed: online cart, play in the browser ----------
+// the web export holds the cart as a 32 KB image (_cartdat in index.js);
+// the levels (map rows 0-31) lie at 0x2000-0x2fff unpacked. the levels
+// of the editor are put there and the player runs from a blob url.
+// code and graphics are those of the published game.
+const SITE=new URL('../',location.href);
+function online(){ if(location.protocol==='file:'){ alert('This works only when the editor is opened from the web site (https://…), not from a local file.'); return false; } return true; }
+$('online').onclick=async()=>{
+  if(!online()) return;
+  try{ const r=await fetch(new URL('dgalaga.p8',SITE)); if(!r.ok) throw new Error(r.status);
+    fileHandle=null; loadText(await r.text(),'dgalaga.p8'); }
+  catch(e){ alert('could not load the online cart: '+e); }
+};
+$('dl').onclick=()=>{
+  const out=writeMap(cartText,encodeAll(levels).bytes);
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([out],{type:'text/plain'}));
+  a.download=cartName||'dgalaga.p8'; a.click();
+};
+$('pb').onclick=async()=>{
+  if(!online()) return;
+  try{
+    const [html,js]=await Promise.all(['index.html','index.js'].map(f=>fetch(new URL(f,SITE)).then(r=>{ if(!r.ok) throw new Error(f+' '+r.status); return r.text(); })));
+    const lv=$('fromHere').checked? levels.slice(cur).concat(levels.slice(0,cur)) : levels;
+    const bytes=encodeAll(lv).bytes;
+    if(bytes.length>4096) throw new Error('levels too big');
+    const m=js.match(/_cartdat=\[([^\]]*)\]/); if(!m) throw new Error('no cart data in index.js');
+    const d=m[1].split(',').map(x=>x.trim()).filter(x=>x!=='').map(Number);
+    if(d.length!==32768) throw new Error('unexpected cart size '+d.length);
+    for(let i=0;i<4096;i++) d[0x2000+i]=bytes[i]||0;
+    const js2=js.slice(0,m.index)+'_cartdat=['+d.join(',')+']'+js.slice(m.index+m[0].length);
+    const jsUrl=URL.createObjectURL(new Blob([js2],{type:'text/javascript'}));
+    if(!html.includes('e.src = "index.js";')) throw new Error('unexpected index.html');
+    const html2=html.replace('e.src = "index.js";','e.src = "'+jsUrl+'";');
+    window.open(URL.createObjectURL(new Blob([html2],{type:'text/html'})),'_blank');
+  }catch(e){ alert('could not start the game: '+e.message); }
 };
 
 (async()=>{

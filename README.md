@@ -52,6 +52,14 @@ einen Emulator: Auf [deluxegalaga.com](https://deluxegalaga.com/index.html)
 läuft es inzwischen sogar im Browser – in voller AGA-Pracht, dem Grafikmodus
 der neueren Amigas (A1200/A4000).
 
+## Eigene Level bauen – ohne PICO-8 🛠️
+
+Im **[Level-Editor](https://callimero.github.io/dgalaga/editor/)** auf
+„Load online cart“ klicken, Formation und Flugbahnen gestalten und mit
+„▶ Play in browser“ sofort im Browser ausprobieren – das Spiel startet in
+einem neuen Tab mit den eigenen Leveln. „Download cart“ speichert sie als
+`.p8`, zum Teilen.
+
 ## Neu: Extras! 🎁
 
 Abgeschossene Aliens lassen jetzt **Extras** fallen – einsammeln, indem man
@@ -152,7 +160,7 @@ zurück/vor, **W** nächste Waffe.
 | `dgalaga.p8` | die Cart (in PICO-8: `load dgalaga`) |
 | `dgalaga.p8.png` | dieselbe Cart als Bild-Datei |
 | `dgalaga.lua` | der Quellcode zum Lesen |
-| `editor/index.html` | Level-Editor ([online](https://callimero.github.io/dgalaga/editor/)): lädt die Cart, Formation und Bézier-Ströme per Maus, Vorschau mit den echten Sprites, speichert direkt in die Cart (Chrome/Edge) mit nummerierten Backups |
+| `editor/index.html` | Level-Editor ([online](https://callimero.github.io/dgalaga/editor/)): lädt die Cart, Formation und Bézier-Ströme per Maus, Vorschau mit den echten Sprites, speichert direkt in die Cart (Chrome/Edge) mit nummerierten Backups – oder ganz ohne PICO-8: Online-Cart laden, Level bauen, im Browser spielen, Cart herunterladen |
 | `tools/levels.py` | Notlösung: schreibt Level per Skript in die Map |
 
 ## Hinweis
