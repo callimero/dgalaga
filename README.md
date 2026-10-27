@@ -52,6 +52,15 @@ einen Emulator: Auf [deluxegalaga.com](https://deluxegalaga.com/index.html)
 läuft es inzwischen sogar im Browser – in voller AGA-Pracht, dem Grafikmodus
 der neueren Amigas (A1200/A4000).
 
+## Neu: Geld und der Deluxe Tax Free Shop 💰
+
+Abgeschossene Aliens lassen sich drehende **Münzen** fallen – Silber, Gold,
+U238, Anti und Rot, je wertvoller, desto seltener. Vor einem Shop geht es
+durch einen **Warp** (das Sternfeld wird schnell und blau), dann wird
+eingekauft: Extra Speed, Extra Bullet, Double/Triple Shot, Less Speed,
+**Auto Fire** und Extra Life. Am Spielende zählt das übrige Geld ×100 als
+Punkte. Der **Highscore** wird gespeichert.
+
 ## Eigene Level bauen – ohne PICO-8 🛠️
 
 Im **[Level-Editor](https://callimero.github.io/dgalaga/editor/)** auf
@@ -150,9 +159,6 @@ Buchstaben E-X-T-R-A und die Totenköpfe folgen.
 | 🅾️ oder ❎ | schießen, auf dem Titel: Start |
 
 Im Browser: Pfeiltasten, **Z** oder **X** schießt (auch C/V/N/M).
-
-**Betatest – Debug-Tasten** (nur am PC/im Browser): **K**/**L** ein Level
-zurück/vor, **W** nächste Waffe.
 
 ## Dateien
 

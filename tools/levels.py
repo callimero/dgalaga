@@ -6,7 +6,7 @@ Usage:  python3 tools/levels.py dgalaga.p8
 
 Map starts with "DG" and the format version (3), then per level:
   len (whole level incl. this byte; 0 = end of list)
-  type (0 normal, 1 bonus, 2 kamikaze)
+  type (0 normal, 1 bonus, 2 kamikaze, 3 shop)
   text length, text (ascii, shown in the announcement)
   kamikaze: only kind, waves (the rest is fixed in the game)
   cols, rows, col spacing px, row spacing px
@@ -86,6 +86,10 @@ def text(lv):
 
 
 def encode(lv):
+    if lv.get('shop'):
+        # {'shop': True, 'text': 'welcome!'}
+        out = [3] + text(lv)
+        return [len(out) + 1] + out
     if lv.get('kami'):
         # {'kami': 'green', 'waves': 5}
         out = [2] + text(lv) + [KIND_NAME[lv['kami']], lv.get('waves', 5)]

@@ -10,12 +10,17 @@
 -- them out. runs first in _init and
 -- overrides the values further down
 function tune()
-	-- enter_cool=30
-	-- kami_spd=2
 	dbg_start = 1 --startlevel
-	dbg_keys=true -- debug, pc only:
+
+--testing
+--	dbg_keys=true -- debug, pc only:
                -- k/l level chose, w weapon
-	reload_time = 10
+--	ship0.money=1000
+
+--	reload_time = 20
+	
+-- implementieren!	
+
 end
 
 -- settings
@@ -26,6 +31,9 @@ end
 ship0={spd=0.8,lives=3,w=1,shots=3,armor=0}
 spd_step=0.2    -- speed extra
 spd_max=2
+spd_min=0.6     -- less speed (shop)
+auto_rate=6     -- frames between
+                -- shots with auto fire
 shots_max=20    -- battery max
                 -- (bullet extras)
 shield_time=600 -- frames of a
@@ -49,7 +57,41 @@ extra={
 	scoop= {s=40,wt=0, fn=function() end},
 	life=  {s=41,wt=1, fn=function() p.lives+=1 end},
 }
-it={} -- falling extras
+it={} -- falling extras and coins
+
+-- coins: first sprite (top view,
+-- 4 images to the side view) and
+-- value. a dying alien drops one
+-- with coin_chance, which one: the
+-- higher the value, the rarer
+coin_chance=0.05 -- test, lower later
+coin_spd=8      -- frames per image
+coins={
+	{n=80,v=10},   -- silver
+	{n=96,v=50},   -- gold
+	{n=112,v=100}, -- u238
+	{n=84,v=200},  -- anti
+	{n=100,v=500}, -- red
+}
+-- shop: name, price, what it does.
+-- shown sorted by price, dearest
+-- on top
+shop_items={
+	{"extra speed",50,function() p.spd=min(p.spd+spd_step,spd_max) end},
+	{"extra bullet",75,function() more_shots() end},
+	{"double shot",100,function() weapon(2) end},
+	{"less speed",150,function() p.spd=max(p.spd-spd_step,spd_min) end},
+	{"triple shot",200,function() weapon(3) end},
+	{"auto fire",250,function() p.auto=true end},
+	{"extra life",400,function() p.lives+=1 end},
+}
+shop_lock=30    -- frames no buying
+                -- after entering
+shop_cool=24    -- frames between
+                -- two purchases
+
+-- spin: image offset, flipped?
+coin_fr={{0},{1},{2},{3},{2,true},{1,true}}
 dead_time=90    -- frames until the
                 -- ship comes back
 inv_time=120    -- frames blinking,
@@ -64,7 +106,7 @@ b={} --ringbuffer later
 -- shot takes one charge (p.ammo of
 -- p.shots), it recharges all the
 -- time while not full
-reload_time=5  -- frames per charge
+reload_time=10 -- frames per charge
 shot_spd=3     -- px/frame
 pb={} -- projectiles of big enemies
 -- per big kind: sprite, speed,
@@ -120,6 +162,8 @@ kami_brake=0.05 -- slow down/frame
 kami_fan=0.08   -- sideways spread
 kami_cool=20    -- frames between
                 -- shots (+random)
+warp_time=240   -- frames of the warp
+                -- before a shop
 end_wait=120    -- frames the level
                 -- goes on after the
                 -- last enemy (and no
@@ -166,7 +210,7 @@ back_turn=0.02  -- max turn/frame
 wpn={
 	{{4,0,1,1}},                          -- single
 	{{5,0,3,2}},                          -- double
-	{{6,-0.6,1,2},{6,0,1,2},{6,0.6,1,2}}, -- triple
+	{{6,-0.6,1,1.5},{6,0,1,1.5},{6,0.6,1,1.2}}, -- triple
 }
 
 -- hit points and score per kind
@@ -212,10 +256,14 @@ function _init()
 	-- btnp without auto repeat:
 	-- holding = one shot
 	poke(0x5f5c,255)
-	-- score/hiscore: shown between
-	-- levels later
+	-- score/hiscore are stored >>16
+	-- (pico-8 numbers end at 32767):
+	-- add points with pts(), show them
+	-- with tostr(score,2). hiscore is
+	-- saved with cartdata
+	cartdata("callimero_dgalaga")
 	score=0
-	hiscore=0
+	hiscore=dget(0)
 	p=new_ship()
 	reload=0
 	-- stars init
@@ -246,8 +294,7 @@ function title()
 	print("pico8 deluxe galaga",26,40,10)
 	if (t()%1<0.7) print("press 🅾️/❎ to start",22,70,7)
 	if fire() then
-		bt=between_time
-		_update60=between
+		next_screen()
 	end
 end
 
@@ -281,7 +328,9 @@ function game()
 	p.x=mid(0,p.x,120)	
 	-- fire: one shot per press
 	-- while there is charge
-	if fire() and p.ammo>0 then
+	-- auto fire (shop): holding fires
+	-- every auto_rate frames
+	if (fire() or p.auto and (btn(4) or btn(5)) and lev.t%auto_rate==0) and p.ammo>0 then
 		shoot(p.w)
 		p.ammo-=1
 	end
@@ -314,7 +363,7 @@ function game()
 	-- after a level switch: number
 	if dbg_t>0 then
 		dbg_t-=1
-		print("stage "..stage,1,1,7)
+		print("stage "..stage_no(),1,1,7)
 	end
 	-- bonus: blinking announcement
 	if lev.bonus and #e==0 and lev.n==#lev.q and lev.t%30<20 then
@@ -326,26 +375,50 @@ function game()
 	if #lev.q==0 and #e==0 then
 		lev.done+=1
 		if lev.done>=end_wait and #eb+#pb+#it==0 and p.dead==0 then
-			hiscore=max(hiscore,score)
+			save_hi()
 			-- hits of a bonus/kamikaze level
 			-- for the announcement
 			last=(lev.bonus or lev.kami) and lev or nil
 			start_level()
-			bt=between_time
-			_update60=between
+			next_screen()
 		end
 	end
 end
 
+-- game over: the money counts as
+-- points (x100), once
 function over()
-	hiscore=max(hiscore,score)
+	if not p.paid then
+		p.paid=true
+		-- shift first: money*100 would
+		-- overflow above 327
+		score+=(p.money>>16)*100
+		save_hi()
+	end
 	cls(0)
 	stars()
-	print("game over",46,56,8)
-	local t="score "..score
-	print(t,64-#t*2,66,7)
+	print("game over",46,46,8)
+	local function mid_print(t,y,c)
+		print(t,64-#t*2,y,c)
+	end
+	mid_print("money "..p.money.." x100",58,9)
+	mid_print("score "..tostr(score,2),68,7)
+	mid_print("hi "..tostr(hiscore,2),78,6)
 	-- restart the cart
 	if (fire()) run()
+end
+
+-- add points (stored >>16)
+function pts(n)
+	score+=n>>16
+end
+
+-- new hiscore? keep and save it
+function save_hi()
+	if score>hiscore then
+		hiscore=score
+		dset(0,hiscore)
+	end
 end
 -->8
 -- ====== objects ======
@@ -693,10 +766,17 @@ function enem()
 	end
 end
 
-function stars()
+-- f: speed factor, blue: colors
+-- of the warp (blueshift), with
+-- streaks when fast
+function stars(f,blue)
+	f=f or 1
 	for st in all(s) do
-		st.y+=st.z/20
-		pset(st.x,st.y,4+st.z/5)
+		local v=st.z/20*f
+		st.y+=v
+		local c=4+st.z/5
+		if (blue) c=({1,13,12,7})[flr(st.z/3)+1]
+		line(st.x,st.y-v*0.8,st.x,st.y,c)
 		if st.y>128 then
 			st.x=rnd(128)
 			st.y=0
@@ -714,7 +794,7 @@ end
 -- a new ship from the start
 -- values ship0
 function new_ship()
-	local o={x=60,y=118,dead=0,inv=0}
+	local o={x=60,y=118,dead=0,inv=0,money=0}
 	for k,v in pairs(ship0) do o[k]=v end
 	o.ammo=o.shots
 	return o
@@ -740,6 +820,21 @@ end
 -- maybe drop an extra at x,y:
 -- first the chance for any, then
 -- which one by its weight
+-- maybe drop a coin: weight 1/value
+function drop_coin(x,y)
+	if (rnd()>=coin_chance) return
+	local sum=0
+	for c in all(coins) do sum+=1/c.v end
+	local r=rnd(sum)
+	for c in all(coins) do
+		r-=1/c.v
+		if r<0 then
+			add(it,{x=x,y=y,coin=c,t=rnd(30)})
+			return
+		end
+	end
+end
+
 function drop(x,y)
 	if (rnd()>=drop_chance) return
 	local sum=0
@@ -759,10 +854,24 @@ end
 function items()
 	for q in all(it) do
 		q.y+=item_spd
-		spr(q.e.s,q.x-4,q.y-4)
+		if q.coin then
+			-- spinning coin; a flipped image
+			-- moves 1 px left, so it stays
+			-- in place
+			q.t+=1
+			local f=coin_fr[flr(q.t/coin_spd)%#coin_fr+1]
+			spr(q.coin.n+f[1],q.x-4-(f[2] and 1 or 0),q.y-4,1,1,f[2])
+		else
+			spr(q.e.s,q.x-4,q.y-4)
+		end
 		if p.dead==0 and abs(q.x-p.x-4)<7 and abs(q.y-p.y-4)<7 then
-			q.e.fn()
-			sfx(3,3)
+			if q.coin then
+				p.money+=q.coin.v
+				sfx(4,3)
+			else
+				q.e.fn()
+				sfx(3,3)
+			end
 			del(it,q)
 		elseif q.y>132 then
 			del(it,q)
@@ -777,6 +886,8 @@ end
 -- shot, 2 alien dives, 3 extra,
 -- 4 money, 5 scoop (later),
 -- 6 alien explodes, 7 ship explodes
+-- (also: out of the warp), 8 warp
+-- (loop)
 function shoot(w)
 	sfx(0,0)
 	for pr in all(wpn[w]) do
@@ -806,9 +917,10 @@ function hit(bu)
 			en.hp-=bu.dmg
 			en.fl=flash_time
 			if en.hp<=0 then
-				score+=worth[en.k] or 0
+				pts(worth[en.k] or 0)
 				if (en.bonus) lev.hits+=1
 				drop(en.x,en.y)
+				drop_coin(en.x+4,en.y)
 				sfx(6)
 				boom(en)
 				del(e,en)
@@ -855,7 +967,8 @@ end
 -- levels in the map: "dg" and
 -- format version 3, then per
 -- level: len (0=end of list),
--- type (0 normal,1 bonus,2 kami),
+-- type (0 normal,1 bonus,2 kami,
+-- 3 shop),
 -- text length, text chars, cols,
 -- rows, col and row spacing px,
 -- per slot: kind+16*stream,
@@ -883,6 +996,8 @@ function load_level(n)
 	for i=1,rd() do tx..=chr(rd()) end
 	-- kamikaze: kind and waves,
 	-- the rest is fixed (settings)
+	-- shop: no aliens, only the text
+	if (ty==3) return {shop=true,text=tx,q={},t=0,hits=0,done=0,n=0}
 	if ty==2 then
 		local l={kami=true,q={},t=0,hits=0,done=0,k=kinds[rd()],text=tx}
 		-- one entry per wave: center x,
@@ -944,7 +1059,8 @@ end
 function start_level()
 	stage+=1
 	lev=load_level(stage)
-	e,pb,eb,it={},{},{},{}
+	e,pb,eb,it,b={},{},{},{},{}
+	p.ammo=p.shots
 	dive_cool=dive_every
 	wave_n=0
 end
@@ -1101,6 +1217,7 @@ function dbg_input()
 			if (k=="k") stage=max(0,stage-2)
 			start_level()
 			dbg_t=90
+			if (lev.shop) shop_open()
 		end
 		-- w: next weapon
 		if (k=="w") p.w=p.w%#wpn+1
@@ -1108,6 +1225,122 @@ function dbg_input()
 end
 
 -- screen between levels
+-- stage number shown: shops do
+-- not count (walks the level list
+-- like load_level)
+function stage_no()
+	local a,c=0x2003,0
+	for i=1,stage do
+		if i>1 then
+			a+=peek(a)
+			if (peek(a)==0) a=0x2003
+		end
+		if (peek(a+1)!=3) c+=1
+	end
+	return c
+end
+
+-- next screen after a level: the
+-- announcement, or for a shop the
+-- warp (no announcement)
+function next_screen()
+	if lev.shop then
+		wt=0
+		-- warp sound loops on channel 2
+		sfx(8,2)
+		_update60=warp
+	else
+		bt=between_time
+		_update60=between
+	end
+end
+
+-- warp to the shop: stars get
+-- faster and blue, then the shop
+function warp()
+	wt+=1
+	cls(0)
+	stars(1+wt/6,wt>20)
+	if wt>=warp_time then
+		-- out of the warp: loop off,
+		-- exit sound
+		sfx(-1,2)
+		sfx(7,0)
+		shop_open()
+	end
+end
+
+-- ====== shop ======
+-- sorted copy of the items
+function shop_open()
+	shop_list={}
+	for it2 in all(shop_items) do add(shop_list,it2) end
+	-- insertion sort by price, high
+	-- first
+	for i=2,#shop_list do
+		local j=i
+		while j>1 and shop_list[j][2]>shop_list[j-1][2] do
+			shop_list[j],shop_list[j-1]=shop_list[j-1],shop_list[j]
+			j-=1
+		end
+	end
+	-- cursor starts on "exit"
+	shop_sel,shop_t,shop_buy,shop_no=#shop_list+1,0,0,0
+	_update60=shop
+end
+
+-- deluxe tax free shop: up/down
+-- choose, fire buys (once per
+-- press, locked at the start and
+-- shortly after a purchase), the
+-- last line leaves
+function shop()
+	shop_t+=1
+	local n=#shop_list+1
+	if (btnp(⬆️)) shop_sel=(shop_sel-2)%n+1
+	if (btnp(⬇️)) shop_sel=shop_sel%n+1
+	shop_buy-=1
+	shop_no-=1
+	if fire() and shop_t>shop_lock and shop_buy<=0 then
+		if shop_sel==n then
+			-- exit: next level
+			start_level()
+			next_screen()
+			return
+		end
+		local it2=shop_list[shop_sel]
+		if p.money>=it2[2] then
+			p.money-=it2[2]
+			it2[3]()
+			sfx(4,3)
+			shop_buy=shop_cool
+		else
+			shop_no=20
+		end
+	end
+	-- draw
+	cls(0)
+	stars()
+	-- rows of stars around the title
+	for r in all({1,15}) do
+		for i=0,15 do
+			print("★",i*8,r,({8,9,10,11,12,14})[(i+r+flr(t()*4))%6+1])
+		end
+	end
+	print("deluxe tax free shop",24,8,11)
+	local m="you have "..p.money.." credits"
+	print(m,64-#m*2,30,9)
+	for i,it2 in ipairs(shop_list) do
+		local y=32+i*9
+		local c=(i==shop_sel) and (shop_no>0 and shop_no%6<3 and 8 or 10)
+			or (p.money>=it2[2] and 11 or 3)
+		local pr=tostr(it2[2])
+		print(pr,40-#pr*4,y,6)
+		print(it2[1],48,y,c)
+	end
+	print("exit the shop",38,46+#shop_list*9,shop_sel==n and 10 or 9)
+end
+
 -- announcement of the next level:
 -- stage, its text, bonus blinks,
 -- hits of the last bonus level
@@ -1117,12 +1350,13 @@ function between()
 	local function mid_print(t,y,c)
 		print(t,64-#t*2,y,c)
 	end
-	mid_print("stage "..stage,34,10)
+	mid_print(lev.shop and "shop" or "stage "..stage_no(),34,10)
 	mid_print(lev.text,44,7)
 	if (lev.bonus and t()%0.5<0.35) mid_print("bonus stage",54,10)
 	if (last) mid_print("hits "..last.hits.." of "..last.n,70,11)
-	mid_print("score "..score,84,7)
-	mid_print("hi "..hiscore,94,6)
+	mid_print("score "..tostr(score,2),84,7)
+	mid_print("money "..p.money,104,9)
+	mid_print("hi "..tostr(hiscore,2),94,6)
 	bt-=1
 	if bt<=0 then
 		last=nil
