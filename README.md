@@ -7,10 +7,10 @@ von Edgar M. Vigdal (1958–2015), für die Fantasy-Konsole
 In Verehrung für den Entwickler Edgar M. Vigdal! YOU ARE LEGEND! Ich hatte die Ehre ein paar Mails
 mit ihm zu wechseln und mich auszutauschen kurz vor seinem Tod.
 
-Viele viele Stunden gepsielt noch in der "normalen" (nicht AGA) Version, der Zweispielermode ist garantiert 
+Viele viele Stunden gepsielt noch in der "normalen" (nicht AGA) Version, der Zweispielermode von Deluxe Galaga ist garantiert 
 das Game das ich am längsten mit Freunden zusammen gespielt habe.
 
-Viel Grafiken zu machen, nicht einfach den Stil der Aliens zu treffen bei der geringen Auflösung. Letzlich sollte man es 
+Viel Grafiken sind zu machen: nicht einfach den Stil der Aliens zu treffen bei der geringen Auflösung. Letzlich sollte man es 
 vielleicht ein "Demake" nennen.
 
 **[▶ Im Browser spielen](https://callimero.github.io/dgalaga/)**
