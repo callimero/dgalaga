@@ -158,7 +158,7 @@ function readConsts(text){
     back_spd:num('back_spd',1.2),back_turn:num('back_turn',0.02),
     roam_spd:num('roam_spd',0.5),roam_bottom:num('roam_bottom',60),
     kami_wait:num('kami_wait',60),kami_n:num('kami_n',5),kami_gap:num('kami_gap',40),
-    kami_dx:num('kami_dx',10),kami_dy:num('kami_dy',2),kami_spd:num('kami_spd',1.6),kami_low:num('kami_low',85),
+    kami_dx:num('kami_dx',10),kami_edge:num('kami_edge',12),kami_dy:num('kami_dy',2),kami_spd:num('kami_spd',1.6),kami_low:num('kami_low',85),
     kami_brake:num('kami_brake',0.05),kami_fan:num('kami_fan',0.05)};
   const km=lua.match(/kinds=\{([^}]*)\}/);
   c.kinds=km? km[1].split(',').map(s=>s.trim().replace(/"/g,'')) : ['red','green','blue','bug'];
@@ -407,7 +407,7 @@ function render(){
 function startPreview(){
   const Lv=L(); const q=[];
   if(Lv.shop) return;
-  if(Lv.kami){ const m=(C.kami_n-1)/2*C.kami_dx+12;
+  if(Lv.kami){ const m=(C.kami_n-1)/2*C.kami_dx+C.kami_edge;
     for(let i=0;i<Lv.waves;i++) q.push({wave:true,x:m+i*(128-2*m)/Math.max(1,Lv.waves-1)});
     preview={t:0,q,ships:[],kami:C.kinds[Lv.kind-1],first:true}; return; }
   Lv.streams.forEach((s,si)=>{

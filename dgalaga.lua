@@ -1,10 +1,6 @@
 -- todo
-	-- enemies formation
 	-- attacks
-	-- levels
-	-- level transitions
 	-- meteor storm
- -- object class 
  	
 -- gameplay tuning: put settings here to try
 -- them out. runs first in _init and
@@ -17,9 +13,9 @@ function tune()
                -- k/l level chose, w weapon
 --	ship0.money=1000
 
---	reload_time = 20
 	
 -- implementieren!	
+--	reload_time = 20
 
 end
 
@@ -106,7 +102,7 @@ b={} --ringbuffer later
 -- shot takes one charge (p.ammo of
 -- p.shots), it recharges all the
 -- time while not full
-reload_time=10 -- frames per charge
+reload_time=20 -- frames per charge
 shot_spd=3     -- px/frame
 pb={} -- projectiles of big enemies
 -- per big kind: sprite, speed,
@@ -152,7 +148,7 @@ kami_wait=60    -- frames at start
 kami_n=5        -- aliens per wave
 kami_gap=40     -- pause frames
                 -- between waves
-kami_dx=2      -- px side by side
+kami_dx=2       -- px side by side
 kami_dy=2       -- px higher each
                 -- (slanted line)
 kami_spd=1.5    -- px/frame
@@ -160,6 +156,11 @@ kami_low=85     -- y where they brake
                 -- (turn ~25 px lower)
 kami_brake=0.05 -- slow down/frame
 kami_fan=0.08   -- sideways spread
+kami_edge=24    -- px from the screen
+                -- edge to the outer
+                -- alien at the start
+                -- (fanning out needs
+                -- room)
 kami_cool=20    -- frames between
                 -- shots (+random)
 warp_time=240   -- frames of the warp
@@ -210,11 +211,11 @@ back_turn=0.02  -- max turn/frame
 wpn={
 	{{4,0,1,1}},                          -- single
 	{{5,0,3,2}},                          -- double
-	{{6,-0.6,1,1.5},{6,0,1,1.5},{6,0.6,1,1.2}}, -- triple
+	{{6,-0.6,1,1.2},{6,0,1,1.2},{6,0.6,1,1.2}}, -- triple
 }
 
 -- hit points and score per kind
-hp={red=2,green=1,blue=2,bug=8,ufo=3,mother=12,flym=8,greenm=8,fly=2}
+hp={red=2,green=1,blue=2,bug=12,ufo=3,mother=12,flym=10,greenm=12,fly=2}
 worth={red=150,green=40,blue=130,bug=200,ufo=300,mother=500,flym=300,greenm=300,fly=60}
 flash_time=4    -- frames white
                 -- after a hit
@@ -325,7 +326,7 @@ function game()
 	 til=1
  end
 	-- stay on the screen
-	p.x=mid(0,p.x,120)	
+	p.x=mid(-2,p.x,122)	
 	-- fire: one shot per press
 	-- while there is charge
 	-- auto fire (shop): holding fires
@@ -1002,7 +1003,7 @@ function load_level(n)
 		local l={kami=true,q={},t=0,hits=0,done=0,k=kinds[rd()],text=tx}
 		-- one entry per wave: center x,
 		-- from left to right
-		local w,m=rd(),(kami_n-1)/2*kami_dx+12
+		local w,m=rd(),(kami_n-1)/2*kami_dx+kami_edge
 		for i=0,w-1 do
 			add(l.q,{x=m+i*(128-2*m)/max(1,w-1)})
 		end
@@ -1060,7 +1061,9 @@ function start_level()
 	stage+=1
 	lev=load_level(stage)
 	e,pb,eb,it,b={},{},{},{},{}
-	p.ammo=p.shots
+	-- battery full, no shield left
+	-- from the last level
+	p.ammo,p.inv=p.shots,0
 	dive_cool=dive_every
 	wave_n=0
 end
@@ -1353,6 +1356,7 @@ function between()
 	mid_print(lev.shop and "shop" or "stage "..stage_no(),34,10)
 	mid_print(lev.text,44,7)
 	if (lev.bonus and t()%0.5<0.35) mid_print("bonus stage",54,10)
+	if (lev.kami and t()%0.5<0.35) mid_print("kamikaze!",54,8)
 	if (last) mid_print("hits "..last.hits.." of "..last.n,70,11)
 	mid_print("score "..tostr(score,2),84,7)
 	mid_print("money "..p.money,104,9)
