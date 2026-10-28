@@ -84,11 +84,13 @@ mit dem Schiff darunter fliegt:
 | **Auto Fire** | Feuertaste halten feuert automatisch (geht bei Lebensverlust verloren) |
 | **Armor** | fängt einen Treffer ab, bis zu 4 (hellblaue Punkte über der Lebensanzeige) |
 | **Punkte ×2 / ×5** | 30 Sekunden lang doppelte bzw. fünffache Punkte |
+| **Scoop** | ein grüner Energietrichter saugt 10 Sekunden lang kleine Aliens an: zwei docken links und rechts an, schießen mit und fangen Treffer ab; weitere werden aus dem Bild geschleudert |
+| **Totenköpfe** (rot/blau/grün) | Vorsicht: Waffe und Tempo sinken – drei hintereinander lösen später etwas aus |
 
 Wie oft etwas fällt, ist zweistufig geregelt: erst die Chance auf *irgendein*
 Extra, dann entscheidet ein Gewicht, welches (Bullets oft, Extraleben selten).
-Wer ein Leben verliert, verliert eine Waffenstufe. Scoop, Panzerung, die
-Buchstaben E-X-T-R-A und die Totenköpfe folgen.
+Wer ein Leben verliert, verliert eine Waffenstufe. Die Buchstaben E-X-T-R-A
+und die Wirkung der Totenkopf-Kombinationen folgen.
 
 ## Stand
 

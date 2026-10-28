@@ -15,13 +15,14 @@ Map starts with "DG" and the format version (3), then per level:
   per stream: delay/4, gap (frames), speed*16, kind, count
               (kind/count only used in bonus levels),
               segments m, then 1+3m points as x+64, y+64
-kinds: 1 red, 2 green, 3 blue, 4 bug, 5 ufo, 6 mother, 7 flym, 8 greenm, 9 fly
+kinds: 1 red, 2 green, 3 blue, 4 bugm, 5 ufo, 6 mother, 7 flym, 8 greenm,
+9 fly, 10 bug
 """
 import sys
 
-KIND = {'.': 0, 'r': 1, 'g': 2, 'b': 3, 'B': 4, 'u': 5, 'M': 6, 'F': 7, 'G': 8, 'f': 9}
-KIND_NAME = {'red': 1, 'green': 2, 'blue': 3, 'bug': 4, 'ufo': 5, 'mother': 6,
-             'flym': 7, 'greenm': 8, 'fly': 9}
+KIND = {'.': 0, 'r': 1, 'g': 2, 'b': 3, 'B': 4, 'u': 5, 'M': 6, 'F': 7, 'G': 8, 'f': 9, 'k': 10}
+KIND_NAME = {'red': 1, 'green': 2, 'blue': 3, 'bugm': 4, 'ufo': 5, 'mother': 6,
+             'flym': 7, 'greenm': 8, 'fly': 9, 'bug': 10}
 
 
 def mirror(pts):

@@ -10,8 +10,10 @@ function tune()
 
 --testing
 --	dbg_keys=true -- debug, pc only:
-               -- k/l level chose, w weapon
+               -- k/l level chose, w weapon,
+               -- j drops dbg_extra
 --	ship0.money=1000
+--	dbg_extra="scoop"
 
 	
 -- implementieren!	
@@ -32,6 +34,17 @@ auto_rate=6     -- frames between
                 -- shots with auto fire
 shots_max=20    -- battery max
                 -- (bullet extras)
+-- scoop: an energy funnel from the
+-- ship's nose sucks small aliens in,
+-- two dock left/right and fire with
+-- the ship (they take hits for it
+-- until the level ends), more ones
+-- spin out of the screen (= shot)
+scoop_time=600  -- frames
+scoop_h=16      -- px high (a line
+                -- every 2 px)
+scoop_pull=1.5  -- px/frame to dock
+mate_dx=10      -- px left/right
 shield_time=600 -- frames of a
                 -- shield extra
 armor_max=4     -- armor: each one
@@ -44,25 +57,30 @@ mult_time=1800  -- frames of points
                 -- (shield = blinking,
                 -- cannot be hit)
 
--- extras: an alien that dies drops
--- one with drop_chance. which one:
--- by weight wt. fn: what it does
-drop_chance=0.1
+-- extras: n = on average every
+-- n-th shot down alien drops it
+-- (0 = never). each extra rolls on
+-- its own, if several hit one of
+-- them falls. fn: what it does
 item_spd=0.6    -- px/frame falling
 extra={
-	bullet={s=34,wt=10,fn=function() more_shots() end},
-	speed= {s=35,wt=5, fn=function() p.spd=min(p.spd+spd_step,spd_max) end},
-	shield={s=36,wt=3, fn=function() p.inv=max(p.inv,shield_time) end},
-	single={s=37,wt=2, fn=function() weapon(1) end},
-	double={s=38,wt=2, fn=function() weapon(2) end},
-	triple={s=39,wt=1, fn=function() weapon(3) end},
-	-- todo: what does the scoop do?
-	scoop= {s=40,wt=0, fn=function() end},
-	life=  {s=41,wt=1, fn=function() p.lives+=1 end},
-	auto=  {s=42,wt=4, fn=function() p.auto=true end},
-	armor= {s=43,wt=5, fn=function() more_armor() end},
-	x2=    {s=44,wt=2, fn=function() set_mult(2) end},
-	x5=    {s=45,wt=4, fn=function() set_mult(5) end},
+	bullet={s=34,n=80,  fn=function() more_shots() end},
+	speed= {s=35,n=130, fn=function() p.spd=min(p.spd+spd_step,spd_max) end},
+	shield={s=36,n=220, fn=function() p.inv=max(p.inv,shield_time) end},
+	single={s=37,n=330, fn=function() weapon(1) end},
+	double={s=38,n=330, fn=function() weapon(2) end},
+	triple={s=39,n=670, fn=function() weapon(3) end},
+	scoop= {s=40,n=110, fn=function() p.scoop_t=scoop_time end},
+	life=  {s=41,n=670, fn=function() p.lives+=1 end},
+	auto=  {s=42,n=170, fn=function() p.auto=true end},
+	armor= {s=43,n=130, fn=function() more_armor() end},
+	x2=    {s=44,n=330, fn=function() set_mult(2) end},
+	x5=    {s=45,n=170, fn=function() set_mult(5) end},
+	-- skulls: weaker ship, three in a
+	-- row trigger something
+	skullr={s=56,n=80,  fn=function() skull("r") end},
+	skullb={s=57,n=80,  fn=function() skull("b") end},
+	skullg={s=58,n=80,  fn=function() skull("g") end},
 }
 it={} -- falling extras and coins
 
@@ -121,7 +139,7 @@ pb={} -- projectiles of big enemies
 -- aimed at the ship?, trail
 -- colors (bright,dark; nil=none)
 eshot={
-	bug={s=51,v=1,aim=true,c1=11,c2=3},
+	bugm={s=51,v=1,aim=true,c1=11,c2=3},
 	mother={s=54,v=1.2,aim=true},
 	flym={s=52,v=1.1,aim=true,c1=8,c2=2},
 	greenm={s=51,v=1.1,aim=true,c1=11,c2=3},
@@ -146,7 +164,7 @@ trail_life=15   -- frames a plasma
 -- written by the level editor.
 -- do not paint in the map editor!
 -- enemy kinds by number
-kinds={"red","green","blue","bug","ufo","mother","flym","greenm","fly"}
+kinds={"red","green","blue","bugm","ufo","mother","flym","greenm","fly","bug"}
 between_time=150 -- frames of the
                 -- screen between
                 -- levels
@@ -227,8 +245,8 @@ wpn={
 }
 
 -- hit points and score per kind
-hp={red=2,green=1,blue=2,bug=12,ufo=3,mother=12,flym=10,greenm=12,fly=2}
-worth={red=150,green=40,blue=130,bug=200,ufo=300,mother=500,flym=300,greenm=300,fly=60}
+hp={red=2,green=1,blue=2,bugm=12,ufo=3,mother=12,flym=10,greenm=12,fly=2,bug=4}
+worth={red=150,green=40,blue=130,bugm=200,ufo=300,mother=500,flym=300,greenm=300,fly=60,bug=100}
 flash_time=4    -- frames white
                 -- after a hit
 -- explosion: sprites 64-68,
@@ -237,10 +255,11 @@ boom_spd=4
 -- particle colors per kind
 -- {bright,dark}
 col={ship={7,12},red={8,2},green={11,3},
-	blue={12,1},bug={14,2},
+	blue={12,1},bugm={14,2},
 	ufo={6,13},mother={6,8},
 	flym={12,8},greenm={11,3},
-	fly={12,8}}
+	fly={12,8},
+	bug={14,2}}
 fx={} -- running explosions
 
 -- animations by time: per frame
@@ -250,12 +269,13 @@ anim={
 	red={{128,false,false,20},{129,false,false,20}},
 	blue={{160,false,false,20},{161,false,false,20}},
 	-- sz=2: sprite is 2x2
-	bug={{164,false,false,12},{166,false,false,12},sz=2},
+	bugm={{164,false,false,12},{166,false,false,12},sz=2},
 	ufo={{176,false,false,20},{177,false,false,20}},
 	mother={{168,false,false,16},{170,false,false,16},sz=2},
 	flym={{132,false,false,10},{134,false,false,10},sz=2},
 	greenm={{136,false,false,14},{138,false,false,14},sz=2},
 	fly={{140,false,false,8},{141,false,false,8}},
+	bug={{156,false,false,16},{157,false,false,16}},
 	coin={{112,false,false,6},{113,false,false,6},
 		{114,false,false,6},{115,false,false,6},
 		{115,false,true,6},{114,false,true,6},
@@ -286,7 +306,8 @@ function _init()
 	-- rotation: 8 directions per kind
 	rot={green=rot_tab(144),
 		red=rot_tab(128),blue=rot_tab(160),
-		ufo=rot_tab(176),fly=rot_tab(140)}
+		ufo=rot_tab(176),fly=rot_tab(140),
+		bug=rot_tab(156)}
 	stage=dbg_start-1
 	-- devkit: keyboard for debug keys
 	if (dbg_keys) poke(0x5f2d,1)
@@ -363,6 +384,7 @@ function game()
 		end
 	end
  spawn()
+ scoop()
  enem()
  plasma()
  ebullets()
@@ -372,8 +394,15 @@ function game()
 		if p.inv>0 then
 			p.inv-=1
 		elseif ship_hit() then
-			-- armor takes the hit
-			if p.armor>0 then
+			-- a docked alien takes the hit,
+			-- then armor
+			local m=docked()
+			if m then
+				sfx(6)
+				boom(m)
+				del(p.mt,m)
+				p.inv=armor_inv
+			elseif p.armor>0 then
 				p.armor-=1
 				p.inv=armor_inv
 			else
@@ -751,7 +780,7 @@ function die()
 	-- lose one weapon tier and auto
 	-- fire (armor and points x2/x5
 	-- stay)
-	p.w,p.auto=max(1,p.w-1),false
+	p.w,p.auto,p.scoop_t=max(1,p.w-1),false,0
 	boom({x=p.x+4,y=p.y+4,an={},k="ship"})
 	p.dead=dead_time
 end
@@ -825,10 +854,98 @@ end
 -- a new ship from the start
 -- values ship0
 function new_ship()
-	local o={x=60,y=118,dead=0,inv=0,money=0,mult=1,mult_t=0}
+	local o={x=60,y=118,dead=0,inv=0,money=0,mult=1,mult_t=0,sk="",
+		mt={},scoop_t=0}
 	for k,v in pairs(ship0) do o[k]=v end
 	o.ammo=o.shots
 	return o
+end
+
+-- first docked alien or nil
+function docked()
+	for m in all(p.mt) do
+		if (m.dock) return m
+	end
+end
+
+-- scoop: mates follow the ship,
+-- flung ones leave, the funnel
+-- (a green line every 2 px, each
+-- 1 px wider per side, dark green
+-- ones run down: sucking) catches
+-- small aliens touching it
+function scoop()
+	for m in all(p.mt) do
+		local tx,ty=p.x+4+m.side*mate_dx,p.y+4
+		if m.dock then
+			m.x,m.y=tx,ty
+		else
+			-- tumbles to its place
+			local dx,dy=tx-m.x,ty-m.y
+			local d=max(abs(dx),abs(dy))
+			if d<scoop_pull then
+				m.dock,m.mode=true,"anim"
+			else
+				m.x+=dx/d*scoop_pull
+				m.y+=dy/d*scoop_pull
+			end
+		end
+		obj_update(m)
+		obj_draw(m)
+	end
+	for o in all(fl) do
+		obj_update(o)
+		obj_draw(o)
+		if (o.y<-12 or o.x<-12 or o.x>140) del(fl,o)
+	end
+	if (p.scoop_t<=0 or p.dead>0) return
+	p.scoop_t-=1
+	local cx,ay=p.x+4,p.y-1
+	for k=0,scoop_h/2-1 do
+		line(cx-1-k,ay-k*2,cx+k,ay-k*2,(k+flr(t()*15))%3==0 and 3 or 11)
+	end
+	for en in all(e) do
+		local dy=ay-en.y
+		if not eshot[en.k] and dy>=0 and dy<=scoop_h+3 and abs(en.x-cx)<=dy/2+4 then
+			del(e,en)
+			en.v,en.curve,en.rate,en.burst=0,0,0.05,0
+			en.mode="spin"
+			if #p.mt<2 then
+				-- dock on the free side
+				en.side=-1
+				for m in all(p.mt) do
+					if (m.side==-1) en.side=1
+				end
+				add(p.mt,en)
+			else
+				-- full: spin out up left or
+				-- right, counts as shot down
+				pts(worth[en.k] or 0)
+				if (en.bonus) lev.hits+=1
+				en.v,en.a=2,rnd({0.125,0.375})
+				add(fl,en)
+			end
+		end
+	end
+end
+
+-- skull: one weapon tier and one
+-- speed step less, color noted;
+-- after three: skull_combo
+function skull(c)
+	p.w=max(1,p.w-1)
+	p.spd=max(spd_min,p.spd-spd_step)
+	p.sk..=c
+	if #p.sk==3 then
+		skull_combo(p.sk)
+		p.sk=""
+	end
+end
+
+-- three skulls in a row, e.g.
+-- "rrr" or "rbg": todo (weapons,
+-- warps, points, meteor storm ...)
+function skull_combo(c)
 end
 
 -- one more armor (max armor_max)
@@ -862,8 +979,7 @@ function weapon(w)
 end
 
 -- maybe drop an extra at x,y:
--- first the chance for any, then
--- which one by its weight
+-- each one with chance 1/n
 -- maybe drop a coin: weight 1/value
 function drop_coin(x,y)
 	if (rnd()>=coin_chance) return
@@ -880,17 +996,11 @@ function drop_coin(x,y)
 end
 
 function drop(x,y)
-	if (rnd()>=drop_chance) return
-	local sum=0
-	for k,x2 in pairs(extra) do sum+=x2.wt end
-	local r=rnd(sum)
+	local hit={}
 	for k,x2 in pairs(extra) do
-		r-=x2.wt
-		if r<0 then
-			add(it,{x=x,y=y,e=x2})
-			return
-		end
+		if (x2.n>0 and rnd(x2.n)<1) add(hit,x2)
 	end
+	if (#hit>0) add(it,{x=x,y=y,e=rnd(hit)})
 end
 
 -- extras fall down, the ship
@@ -934,6 +1044,9 @@ end
 -- (loop)
 function shoot(w)
 	sfx(0,0)
+	for m in all(p.mt) do
+		if (m.dock) add(b,{x=m.x-4,y=m.y-6,s=0,dx=0,w=1,dmg=1})
+	end
 	for pr in all(wpn[w]) do
 		add(b,{x=p.x,y=p.y-4,s=pr[1],dx=pr[2],w=pr[3],dmg=pr[4]})
 	end
@@ -1103,7 +1216,10 @@ end
 function start_level()
 	stage+=1
 	lev=load_level(stage)
-	e,pb,eb,it,b={},{},{},{},{}
+	e,pb,eb,it,b,fl={},{},{},{},{},{}
+	-- docked aliens stay until the
+	-- level ends
+	p.mt={}
 	-- battery full, no shield left
 	-- from the last level
 	p.ammo,p.inv=p.shots,0
@@ -1254,7 +1370,7 @@ end
 
 -- debug keys (devkit, pc only):
 -- k one level back, l one on,
--- w next weapon
+-- w next weapon, j drop an extra
 function dbg_input()
 	while dbg_keys and stat(30) do
 		local k=stat(31)
@@ -1267,6 +1383,9 @@ function dbg_input()
 		end
 		-- w: next weapon
 		if (k=="w") p.w=p.w%#wpn+1
+		-- j: drop dbg_extra (tune) in
+		-- the middle
+		if (k=="j") add(it,{x=64,y=-4,e=extra[dbg_extra or "scoop"]})
 	end
 end
 
