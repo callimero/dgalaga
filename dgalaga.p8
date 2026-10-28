@@ -14,7 +14,8 @@ function tune()
 --testing
 --	dbg_keys=true -- debug, pc only:
                -- k/l level chose, w weapon,
-               -- j drops dbg_extra
+               -- j drops dbg_extra,
+               -- p pause
 --	ship0.money=1000
 --	dbg_extra="scoop"
 
@@ -254,7 +255,19 @@ flash_time=4    -- frames white
                 -- after a hit
 -- explosion: sprites 64-68,
 -- frames per image
-boom_spd=4
+boom_spd=3
+-- explosion particles (z: size of
+-- the alien, 1 small, 2 big)
+spark_n=12      -- sparks per z
+spark_v=0.6     -- speed 0.3+rnd(v*z)
+spark_life=20   -- frames (+rnd 10)
+ball_n=8        -- big ones: balls in
+ball_r=2        -- their colors,
+                -- radius r+rnd(r)
+ball_v=0.4      -- speed 0.2+rnd(v)
+ball_life=50    -- frames (+rnd 10)
+debris_n=16     -- grey debris
+debris_v=0.5    -- speed 0.3+rnd(v)
 -- particle colors per kind
 -- {bright,dark}
 col={ship={7,12},red={8,2},green={11,3},
@@ -611,7 +624,14 @@ function parts()
 		q.x+=q.dx
 		q.y+=q.dy
 		q.l-=1
-		pset(q.x,q.y,q.l>q.ml/2 and q.c1 or q.c2)
+		local c=q.l>q.ml/2 and q.c1 or q.c2
+		-- with a radius: a ball that
+		-- shrinks, else one pixel
+		if q.r then
+			circfill(q.x,q.y,q.r*q.l/q.ml,c)
+		else
+			pset(q.x,q.y,c)
+		end
 		if (q.l<=0) del(pt,q)
 	end
 end
@@ -1093,17 +1113,35 @@ end
 
 -- explosion: sprite animation
 -- plus a burst of particles in
--- the enemy's colors
+-- the enemy's main color (no
+-- change of color)
 function boom(o)
 	local z=o.an.sz or 1
 	add(fx,{x=o.x,y=o.y,z=z,t=0})
 	local c=col[o.k] or {10,8}
-	for i=1,12*z do
-		local a,v=rnd(),0.3+rnd(1)*z
-		add(pt,{x=o.x,y=o.y,
-			dx=cos(a)*v,dy=sin(a)*v,
-			l=20+rnd(10),ml=30,c1=c[1],c2=c[2]})
+	for i=1,spark_n*z do
+		spark(o,rnd(),0.3+rnd(spark_v*z),c[1],c[1])
 	end
+	-- big ones: balls in their colors
+	-- and grey debris
+	if z>1 then
+		for i=1,ball_n do
+			spark(o,rnd(),0.2+rnd(ball_v),c[1],c[1],ball_r+rnd(ball_r),ball_life)
+		end
+		for i=1,debris_n do
+			spark(o,rnd(),0.3+rnd(debris_v),7,6)
+		end
+	end
+end
+
+-- one particle from o in direction
+-- a with speed v, colors c1 then
+-- c2, radius r (nil = a pixel),
+-- life lf (nil = spark_life)
+function spark(o,a,v,c1,c2,r,lf)
+	lf=lf or spark_life
+	add(pt,{x=o.x,y=o.y,dx=cos(a)*v,dy=sin(a)*v,
+		l=lf+rnd(10),ml=lf+10,c1=c1,c2=c2,r=r})
 end
 
 -- explosions: 5 images, then gone.
@@ -1373,8 +1411,12 @@ end
 
 -- debug keys (devkit, pc only):
 -- k one level back, l one on,
--- w next weapon, j drop an extra
+-- w next weapon, j drop an extra,
+-- p pause
 function dbg_input()
+	-- p is ours: no pico-8 pause menu
+	-- (enter neither) in debug mode
+	if (dbg_keys) poke(0x5f30,1)
 	while dbg_keys and stat(30) do
 		local k=stat(31)
 		if k=="k" or k=="l" then
@@ -1384,11 +1426,26 @@ function dbg_input()
 			dbg_t=90
 			if (lev.shop) shop_open()
 		end
+		-- p: pause (game stands still)
+		if k=="p" then
+			dbg_back=_update60
+			_update60=dbg_pause
+		end
 		-- w: next weapon
 		if (k=="w") p.w=p.w%#wpn+1
 		-- j: drop dbg_extra (tune) in
 		-- the middle
 		if (k=="j") add(it,{x=64,y=-4,e=extra[dbg_extra or "scoop"]})
+	end
+end
+
+-- debug pause: the last picture
+-- stays, p goes on
+function dbg_pause()
+	poke(0x5f30,1)
+	if (t()%1<0.6) print("pause",54,60,7)
+	while stat(30) do
+		if (stat(31)=="p") _update60=dbg_back
 	end
 end
 
