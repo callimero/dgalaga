@@ -85,12 +85,28 @@ mit dem Schiff darunter fliegt:
 | **Armor** | fängt einen Treffer ab, bis zu 4 (hellblaue Punkte über der Lebensanzeige) |
 | **Punkte ×2 / ×5** | 30 Sekunden lang doppelte bzw. fünffache Punkte |
 | **Scoop** | ein grüner Energietrichter saugt 10 Sekunden lang kleine Aliens an: zwei docken links und rechts an, schießen mit und fangen Treffer ab; weitere werden aus dem Bild geschleudert |
+| **Meteor Storm** | beendet das Level und schickt das Schiff in einen Meteoritensturm (siehe unten) |
 | **Totenköpfe** (rot/blau/grün) | Vorsicht: Waffe und Tempo sinken – drei hintereinander lösen später etwas aus |
 
-Wie oft etwas fällt, ist zweistufig geregelt: erst die Chance auf *irgendein*
-Extra, dann entscheidet ein Gewicht, welches (Bullets oft, Extraleben selten).
-Wer ein Leben verliert, verliert eine Waffenstufe. Die Buchstaben E-X-T-R-A
-und die Wirkung der Totenkopf-Kombinationen folgen.
+Wie oft etwas fällt, steht pro Extra als „im Schnitt jeder n-te Abschuss“
+in der Cart (Bullets oft, Extraleben selten). Wer ein Leben verliert,
+verliert eine Waffenstufe. Die Buchstaben E-X-T-R-A und die Wirkung der
+Totenkopf-Kombinationen folgen.
+
+## Neu: Meteor Storm ☄️
+
+Ein Pazifisten-Level: Über das Extra oder manchmal aus dem Warp heraus
+gerät man in einen Meteoritensturm. Schießen geht nicht, nur ausweichen.
+
+- Der Sturm ist 30 **Galagometer** (Gm) lang, normal fliegt man 1 Gm pro
+  Sekunde. Jedes Gm bringt 5000 Punkte.
+- **Feuertaste halten** fliegt schneller – man ist früher durch, und
+  schnell geflogene Gm zählen doppelt.
+- Wer fast die ganze Zeit (über 90 %) Vollgas gibt, bekommt zusätzlich
+  **100.000 Punkte und 500 Geld**.
+- Ein Treffer kostet **kein Leben**, beendet aber den Sturm: Die Punkte
+  bis dahin bleiben, Bonus und Geld gibt es keine.
+- Danach geht es mit dem nächsten Level weiter – oder in den Shop.
 
 ## Stand
 
@@ -150,11 +166,9 @@ und die Wirkung der Totenkopf-Kombinationen folgen.
 
 ## Geplant
 
-- weitere Extras: Scoop, Panzerung, E-X-T-R-A-Buchstaben, Totenköpfe
-  (die das Schiff auch verschlechtern), Abzeichen
+- weitere Extras: E-X-T-R-A-Buchstaben, Totenkopf-Kombinationen, Abzeichen
 - höhere Waffenstufen
 - Punkte- und Highscore-Anzeige zwischen den Leveln ausbauen
-- Meteoritensturm
 
 ## Steuerung
 
@@ -171,10 +185,11 @@ Im Browser: Pfeiltasten, **Z** oder **X** schießt (auch C/V/N/M).
 |---|---|
 | `index.html`, `index.js` | Web-Player (GitHub Pages) |
 | `dgalaga.p8` | die Cart (in PICO-8: `load dgalaga`) |
-| `dgalaga.p8.png` | dieselbe Cart als Bild-Datei |
+| `dgalaga.p8.png` | dieselbe Cart als Bild-Datei (ohne Kommentare, sonst passt der Code nicht hinein) |
 | `dgalaga.lua` | der Quellcode zum Lesen |
 | `editor/index.html` | Level-Editor ([online](https://callimero.github.io/dgalaga/editor/)): lädt die Cart, Formation und Bézier-Ströme per Maus, Vorschau mit den echten Sprites, speichert direkt in die Cart (Chrome/Edge) mit nummerierten Backups – oder ganz ohne PICO-8: Online-Cart laden, Level bauen, im Browser spielen, Cart herunterladen |
 | `tools/levels.py` | Notlösung: schreibt Level per Skript in die Map |
+| `tools/strip.py` | entfernt Kommentare für den PNG- und Web-Export |
 
 ## Hinweis
 

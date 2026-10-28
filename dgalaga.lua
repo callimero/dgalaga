@@ -7,14 +7,14 @@
 -- overrides the values further down
 function tune()
 --testing
---	dbg_start = 6 --startlevel
+--	dbg_start = 1 --startlevel
 --	ship0={spd=1.6,lives=6,w=3,shots=12,armor=8}
 --	dbg_keys=true -- debug, pc only:
                -- k/l level chose, w weapon,
                -- j drops dbg_extra,
                -- p pause
 --	ship0.money=1000
---	dbg_extra="scoop"
+--	dbg_extra="storm"
 
 	
 -- implementieren!	
@@ -82,6 +82,8 @@ extra={
 	skullr={s=56,n=80,  fn=function() skull("r") end},
 	skullb={s=57,n=80,  fn=function() skull("b") end},
 	skullg={s=58,n=80,  fn=function() skull("g") end},
+	-- meteor storm, ends the level
+	storm= {s=59,n=100, fn=function() p.storm=true end},
 }
 it={} -- falling extras and coins
 
@@ -195,6 +197,28 @@ kami_edge=24    -- px from the screen
 kami_cool=20    -- frames between
                 -- shots (+random)
 warp_time=240   -- frames of the warp
+-- meteor storm (extra, or a warp
+-- with storm_chance): dodge, no
+-- shooting. holding fire flies
+-- storm_boost times faster and its
+-- gm count double. a hit ends the
+-- storm: no life lost, no bonus
+storm_chance=0.25 -- per warp
+storm_gm=30     -- galagometers long
+                -- (1 gm/s normal)
+gm_pts=5000     -- points per gm
+storm_spd=1   -- px/frame meteors
+storm_boost=2 -- speed with fire
+storm_dense=0.05 -- new meteors per
+                -- frame (x speed)
+storm_full=0.9  -- part of the time
+                -- boosted for the
+                -- full boost bonus
+                -- (100000 + money)
+storm_money=500
+-- meteor sprites: odd ones 1x1,
+-- even ones 2x2
+meteors={7,23,8,10,12}
                 -- before a shop
 end_wait=120    -- frames the level
                 -- goes on after the
@@ -454,6 +478,14 @@ function game()
 			end
 		end
 	end
+	-- meteor storm extra: the rest
+	-- of the level is skipped
+	if p.storm then
+		p.storm=false
+		save_hi()
+		start_level()
+		storm_go()
+	end
 end
 
 -- game over: the money counts as
@@ -469,9 +501,6 @@ function over()
 	cls(0)
 	stars()
 	print("game over",46,46,8)
-	local function mid_print(t,y,c)
-		print(t,64-#t*2,y,c)
-	end
 	mid_print("money "..p.money.." x100",58,9)
 	mid_print("score "..tostr(score,2),68,7)
 	mid_print("hi "..tostr(hiscore,2),78,6)
@@ -1498,13 +1527,107 @@ function warp()
 		-- exit sound
 		sfx(-1,2)
 		sfx(7,0)
-		if lev.shop then
-			shop_open()
+		if rnd()<storm_chance then
+			storm_go()
 		else
-			bt=between_time
-			_update60=between
+			arrive()
 		end
 	end
+end
+
+-- shop or announcement of the
+-- level that comes next
+function arrive()
+	if lev.shop then
+		shop_open()
+	else
+		bt=between_time
+		_update60=between
+	end
+end
+
+-- ====== meteor storm ======
+function storm_go()
+	-- sg/sb: gm flown/boosted,
+	-- st/sbt: frames/boosted frames,
+	-- sw: frames since the end
+	mts,sg,sb,st,sbt,sw,sok={},0,0,0,0
+	p.x=60
+	_update60=storm
+end
+
+function storm()
+	local f,til=1,0
+	cls(0)
+	if not sw then
+		st+=1
+		if btn(4) or btn(5) then
+			f=storm_boost
+			sbt+=1
+			sb+=f/60
+		end
+		local g=sg
+		sg=min(sg+f/60,storm_gm)
+		-- points for every full gm
+		if (flr(sg)>flr(g)) pts(gm_pts)
+		if (btn(⬅️)) p.x-=p.spd til=-1
+		if (btn(➡️)) p.x+=p.spd til=1
+		p.x=mid(-2,p.x,122)
+		if (rnd()<storm_dense*f) add(mts,{s=rnd(meteors),x=rnd(144)-16,y=-16,v=storm_spd*(0.8+rnd(0.4)),fl=rnd()<0.5})
+		if (sg>=storm_gm) sw,sok=0,true
+	else
+		sw+=1
+	end
+	stars(2*f)
+	for m in all(mts) do
+		local z=2-m.s%2
+		m.y+=m.v*f
+		spr(m.s,m.x,m.y,z,z,m.fl)
+		if not sw and abs(m.x+4*z-p.x-4)<3*z+ship_r and abs(m.y+4*z-p.y-4)<3*z+ship_r then
+			-- hit: the storm is over
+			sw=0
+			sfx(7,0)
+			boom({x=p.x+4,y=p.y+4,an={},k="ship"})
+		end
+		if (m.y>128) del(mts,m)
+	end
+	parts()
+	booms()
+	if (not sw or sok) spr(19+til,p.x,p.y)
+	print(flr(sg).."/"..storm_gm.." gm",1,1,f>1 and 10 or 7)
+	hud()
+	if sw==dead_time then
+		-- bonus only when it went
+		-- through: boosted gm count
+		-- double, nearly all the time
+		-- boosted: full boost bonus
+		sbon,sfull=0,sok and sbt>st*storm_full
+		if (sok) sbon=flr(sb)*(gm_pts>>16)
+		if sfull then
+			sbon+=10*(10000>>16)
+			p.money+=storm_money
+		end
+		score+=sbon
+		save_hi()
+		bt=between_time
+		_update60=storm_end
+	end
+end
+
+function storm_end()
+	cls(0)
+	stars()
+	mid_print("meteor storm",34,10)
+	mid_print(flr(sg).." of "..storm_gm.." gm",46,11)
+	if sok then
+		mid_print("speed bonus "..tostr(sbon,2),56,11)
+		if (sfull) mid_print("full boost! +"..storm_money.." money",66,10)
+	else
+		mid_print("hit! no bonus",56,8)
+	end
+	mid_print("score "..tostr(score,2),84,7)
+	bt-=1
+	if (bt<=0) arrive()
 end
 
 -- ====== shop ======
@@ -1578,14 +1701,15 @@ function shop()
 	print("exit the shop",38,46+#shop_list*9,shop_sel==n and 10 or 9)
 end
 
+function mid_print(t,y,c)
+	print(t,64-#t*2,y,c)
+end
+
 -- hits of a bonus/kamikaze level,
 -- then always a warp
 function result()
 	cls(0)
 	stars()
-	local function mid_print(t,y,c)
-		print(t,64-#t*2,y,c)
-	end
 	mid_print(lev.bonus and "bonus stage" or "kamikaze",40,lev.bonus and 10 or 8)
 	mid_print("hits "..lev.hits.." of "..lev.n,54,11)
 	if (lev.hits==lev.n) mid_print("perfect!",64,10)
@@ -1603,9 +1727,6 @@ end
 function between()
 	cls(0)
 	stars()
-	local function mid_print(t,y,c)
-		print(t,64-#t*2,y,c)
-	end
 	mid_print(lev.shop and "shop" or "stage "..stage_no(),34,10)
 	mid_print(lev.text,44,7)
 	if (lev.bonus and t()%0.5<0.35) mid_print("bonus stage",54,10)
