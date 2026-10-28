@@ -34,6 +34,13 @@ shots_max=20    -- battery max
                 -- (bullet extras)
 shield_time=600 -- frames of a
                 -- shield extra
+armor_max=4     -- armor: each one
+                -- takes one hit
+armor_inv=60    -- frames blinking
+                -- after armor took
+                -- a hit
+mult_time=1800  -- frames of points
+                -- x2 / x5
                 -- (shield = blinking,
                 -- cannot be hit)
 
@@ -52,6 +59,10 @@ extra={
 	-- todo: what does the scoop do?
 	scoop= {s=40,wt=0, fn=function() end},
 	life=  {s=41,wt=1, fn=function() p.lives+=1 end},
+	auto=  {s=42,wt=4, fn=function() p.auto=true end},
+	armor= {s=43,wt=5, fn=function() more_armor() end},
+	x2=    {s=44,wt=2, fn=function() set_mult(2) end},
+	x5=    {s=45,wt=4, fn=function() set_mult(5) end},
 }
 it={} -- falling extras and coins
 
@@ -80,6 +91,7 @@ shop_items={
 	{"triple shot",200,function() weapon(3) end},
 	{"auto fire",250,function() p.auto=true end},
 	{"extra life",400,function() p.lives+=1 end},
+	{"armour",600,function() more_armor() end},
 }
 shop_lock=30    -- frames no buying
                 -- after entering
@@ -336,6 +348,11 @@ function game()
 		p.ammo-=1
 	end
 	end -- ship alive
+	-- points x2/x5 run out
+	if p.mult_t>0 then
+		p.mult_t-=1
+		if (p.mult_t==0) p.mult=1
+	end
 	-- battery recharges all the time,
 	-- one charge per reload_time
 	if p.ammo<p.shots then
@@ -355,7 +372,13 @@ function game()
 		if p.inv>0 then
 			p.inv-=1
 		elseif ship_hit() then
-			die()
+			-- armor takes the hit
+			if p.armor>0 then
+				p.armor-=1
+				p.inv=armor_inv
+			else
+				die()
+			end
 		end
 		-- blink while invulnerable
 		if (p.dead==0 and p.inv%8<4) spr(19+til,p.x,p.y)
@@ -411,7 +434,7 @@ end
 
 -- add points (stored >>16)
 function pts(n)
-	score+=n>>16
+	score+=(n*p.mult)>>16
 end
 
 -- new hiscore? keep and save it
@@ -725,8 +748,10 @@ end
 function die()
 	sfx(7,0)
 	p.lives-=1
-	-- lose one weapon tier
-	p.w=max(1,p.w-1)
+	-- lose one weapon tier and auto
+	-- fire (armor and points x2/x5
+	-- stay)
+	p.w,p.auto=max(1,p.w-1),false
 	boom({x=p.x+4,y=p.y+4,an={},k="ship"})
 	p.dead=dead_time
 end
@@ -787,18 +812,36 @@ function stars(f,blue)
 end
 
 -- ships left, top right
+-- ships left, top right; armor as
+-- light blue dots above them
 function hud()
-	spr(21,112,-1)
-	print(p.lives,120,1,7)
+	for i=1,p.armor do
+		rectfill(110+i*3,1,111+i*3,2,12)
+	end
+	spr(21,112,2)
+	print(p.lives,120,4,7)
 end
 
 -- a new ship from the start
 -- values ship0
 function new_ship()
-	local o={x=60,y=118,dead=0,inv=0,money=0}
+	local o={x=60,y=118,dead=0,inv=0,money=0,mult=1,mult_t=0}
 	for k,v in pairs(ship0) do o[k]=v end
 	o.ammo=o.shots
 	return o
+end
+
+-- one more armor (max armor_max)
+function more_armor()
+	p.armor=min(p.armor+1,armor_max)
+end
+
+-- points x2 / x5 for mult_time
+-- frames; a higher factor wins,
+-- the time starts again
+function set_mult(m)
+	p.mult=max(p.mult,m)
+	p.mult_t=mult_time
 end
 
 -- one more charge in the battery

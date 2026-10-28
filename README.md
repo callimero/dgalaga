@@ -81,6 +81,9 @@ mit dem Schiff darunter fliegt:
 | **Shield** | 10 Sekunden unverwundbar (blinkend) |
 | **Single / Double / Triple Shot** | installiert diese Waffe – fängt man die Waffe, die man schon hat, gibt es eine Ladung mehr. Doppelschuss trifft doppelt, jedes Projektil des Dreifachschusses auch |
 | **Extraleben** | ein Schiff mehr |
+| **Auto Fire** | Feuertaste halten feuert automatisch (geht bei Lebensverlust verloren) |
+| **Armor** | fängt einen Treffer ab, bis zu 4 (hellblaue Punkte über der Lebensanzeige) |
+| **Punkte ×2 / ×5** | 30 Sekunden lang doppelte bzw. fünffache Punkte |
 
 Wie oft etwas fällt, ist zweistufig geregelt: erst die Chance auf *irgendein*
 Extra, dann entscheidet ein Gewicht, welches (Bullets oft, Extraleben selten).

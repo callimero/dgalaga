@@ -37,6 +37,13 @@ shots_max=20    -- battery max
                 -- (bullet extras)
 shield_time=600 -- frames of a
                 -- shield extra
+armor_max=4     -- armor: each one
+                -- takes one hit
+armor_inv=60    -- frames blinking
+                -- after armor took
+                -- a hit
+mult_time=1800  -- frames of points
+                -- x2 / x5
                 -- (shield = blinking,
                 -- cannot be hit)
 
@@ -55,6 +62,10 @@ extra={
 	-- todo: what does the scoop do?
 	scoop= {s=40,wt=0, fn=function() end},
 	life=  {s=41,wt=1, fn=function() p.lives+=1 end},
+	auto=  {s=42,wt=4, fn=function() p.auto=true end},
+	armor= {s=43,wt=5, fn=function() more_armor() end},
+	x2=    {s=44,wt=2, fn=function() set_mult(2) end},
+	x5=    {s=45,wt=4, fn=function() set_mult(5) end},
 }
 it={} -- falling extras and coins
 
@@ -83,6 +94,7 @@ shop_items={
 	{"triple shot",200,function() weapon(3) end},
 	{"auto fire",250,function() p.auto=true end},
 	{"extra life",400,function() p.lives+=1 end},
+	{"armour",600,function() more_armor() end},
 }
 shop_lock=30    -- frames no buying
                 -- after entering
@@ -339,6 +351,11 @@ function game()
 		p.ammo-=1
 	end
 	end -- ship alive
+	-- points x2/x5 run out
+	if p.mult_t>0 then
+		p.mult_t-=1
+		if (p.mult_t==0) p.mult=1
+	end
 	-- battery recharges all the time,
 	-- one charge per reload_time
 	if p.ammo<p.shots then
@@ -358,7 +375,13 @@ function game()
 		if p.inv>0 then
 			p.inv-=1
 		elseif ship_hit() then
-			die()
+			-- armor takes the hit
+			if p.armor>0 then
+				p.armor-=1
+				p.inv=armor_inv
+			else
+				die()
+			end
 		end
 		-- blink while invulnerable
 		if (p.dead==0 and p.inv%8<4) spr(19+til,p.x,p.y)
@@ -414,7 +437,7 @@ end
 
 -- add points (stored >>16)
 function pts(n)
-	score+=n>>16
+	score+=(n*p.mult)>>16
 end
 
 -- new hiscore? keep and save it
@@ -728,8 +751,10 @@ end
 function die()
 	sfx(7,0)
 	p.lives-=1
-	-- lose one weapon tier
-	p.w=max(1,p.w-1)
+	-- lose one weapon tier and auto
+	-- fire (armor and points x2/x5
+	-- stay)
+	p.w,p.auto=max(1,p.w-1),false
 	boom({x=p.x+4,y=p.y+4,an={},k="ship"})
 	p.dead=dead_time
 end
@@ -790,18 +815,36 @@ function stars(f,blue)
 end
 
 -- ships left, top right
+-- ships left, top right; armor as
+-- light blue dots above them
 function hud()
-	spr(21,112,-1)
-	print(p.lives,120,1,7)
+	for i=1,p.armor do
+		rectfill(110+i*3,1,111+i*3,2,12)
+	end
+	spr(21,112,2)
+	print(p.lives,120,4,7)
 end
 
 -- a new ship from the start
 -- values ship0
 function new_ship()
-	local o={x=60,y=118,dead=0,inv=0,money=0}
+	local o={x=60,y=118,dead=0,inv=0,money=0,mult=1,mult_t=0}
 	for k,v in pairs(ship0) do o[k]=v end
 	o.ammo=o.shots
 	return o
+end
+
+-- one more armor (max armor_max)
+function more_armor()
+	p.armor=min(p.armor+1,armor_max)
+end
+
+-- points x2 / x5 for mult_time
+-- frames; a higher factor wins,
+-- the time starts again
+function set_mult(m)
+	p.mult=max(p.mult,m)
+	p.mult_t=mult_time
 end
 
 -- one more charge in the battery
@@ -1387,14 +1430,14 @@ bbbbbbbbbbbbbbbb0006600000066000000660000000000000000000000000005655551555555555
 00bbbbbbbbbbbb000667d6606667d6660667d6600066d66000000000000000000000111111100000005555555555550000000000000000000000000000000000
 0000000000000000056ddc70566dd66107cdd6500006660000000000000000000000000000000000000555555151500000000000000000000000000000000000
 000bbbbbbbbbb0000006600000666600000660000000000000000000000000000000000000000000000005515150000000000000000000000000000000000000
-0000000000000000077fff00077fff00077fff00077fff00077fff00077fff00077fff0006dddd00077fff00077fff0000000000000000000000000000000000
-0000bbbbbbbb000077aaa8f0778aa8f177bbb8f1778888f1778888f1778888f1788888f16cccccd1778888f1778888f100000000000000000000000000000000
-000000000000000078a8a8f078a888f17b888bf1788788f1787878f1788c88f17bbbbbf1d98c89d1788888f1788888f100000000000000000000000000000000
-00000bbbbbb00000f8aa8890f8aaa891fb878b91f88a8891f8b8b891fc8c8c91f3333391d88888d1f8888891f888889100000000000000000000000000000000
-0000000000000000f8a8a890f888a891fb888b91f8898891f8383891f8c8c891f8bbb891dc888c51f8888891f888889100000000000000000000000000000000
-000000bbbb000000f8aaa990f8aa8991f8bbb991f8888991f8888991f88c8991f8838991dcc8cc51f8888991f888899100000000000000000000000000000000
-00000000000000000ff999000ff999110ff999110ff999110ff999110ff999110ff999110ddd55110ff999110ff9991100000000000000000000000000000000
-0000000bb00000000000000001111110011111100111111001111110011111100111111001111110011111100111111000000000000000000000000000000000
+0000000000000000077fff00077fff00077fff00077fff00077fff00077fff00077fff0006dddd00077fff00077fff0006dddd0006dddd00077fff0000000000
+0000bbbbbbbb000077aaa8f0778aa8f177bbb8f1778888f1778888f1778888f1788888f16cccccd1778788f1778888f16c776cd16c677cd1778888f100000000
+000000000000000078a8a8f078a888f17b888bf1788788f1787878f1788c88f17bbbbbf1d98c89d1788888f1788588f1dccc7cd1dc7cccd1788888f100000000
+00000bbbbbb00000f8aa8890f8aaa891fb878b91f88a8891f8b8b891fc8c8c91f3333391d88888d1f88c8891f8565891dcc76cd1dc677cd1f888889100000000
+0000000000000000f8a8a890f888a891fb888b91f8898891f8383891f8c8c891f8bbb891dc888c51f8888891f8565891dc7ccc51dccc7c51f888889100000000
+000000bbbb000000f8aaa990f8aa8991f8bbb991f8888991f8888991f88c8991f8838991dcc8cc51f8818991f8888991dc677c51dc776c51f888899100000000
+00000000000000000ff999000ff999110ff999110ff999110ff999110ff999110ff999110ddd55110ff999110ff999110ddd55110ddd55110ff9991100000000
+0000000bb00000000000000001111110011111100111111001111110011111100111111001111110011111100111111001111110011111100111111000000000
 00000000000000600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 000000000000060000060000000000000000000000bbb00000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0005000000556000000600000007b0000007e0000b7bbb0000161000000000000000000000000000000000000000000000000000000000000000000000000000
