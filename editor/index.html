@@ -480,10 +480,13 @@ function loop(){ if(preview){ stepPreview(); } render(); requestAnimationFrame(l
 function aliensOf(Lv){ if(Lv.shop) return 0; if(Lv.kami) return Lv.waves*C.kami_n; return Lv.bonus? Lv.streams.reduce((a,s)=>a+s.count,0) : Lv.grid.flat().filter(s=>s.k).length; }
 function updateLevelList(){
   const ul=$('levels'); ul.innerHTML='';
+  let stageNo=0;
   levels.forEach((Lv,i)=>{
     const li=document.createElement('li'); if(i==cur) li.className='sel';
     const n=Lv.streams.length;
-    li.innerHTML='Level '+(i+1)+'<span>'+(Lv.shop? 'shop' : Lv.kami? 'kamikaze, '+aliensOf(Lv)+' '+C.kinds[Lv.kind-1]
+    // like the game: shops have no stage number
+    if(!Lv.shop) stageNo++;
+    li.innerHTML=(Lv.shop? 'Shop' : 'Stage '+stageNo)+'<span>'+(Lv.shop? '' : Lv.kami? 'kamikaze, '+aliensOf(Lv)+' '+C.kinds[Lv.kind-1]
       : (Lv.bonus?'bonus, ':'')+aliensOf(Lv)+' aliens, '+n+' stream'+(n==1?'':'s'))+'</span>';
     if(Lv.text) li.title=Lv.text;
     li.onclick=()=>{ cur=i; selStream=0; preview=null; refresh(); };

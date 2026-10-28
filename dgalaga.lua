@@ -6,9 +6,9 @@
 -- them out. runs first in _init and
 -- overrides the values further down
 function tune()
-	dbg_start = 1 --startlevel
-
 --testing
+--	dbg_start = 6 --startlevel
+--	ship0={spd=1.6,lives=6,w=3,shots=12,armor=8}
 --	dbg_keys=true -- debug, pc only:
                -- k/l level chose, w weapon,
                -- j drops dbg_extra,
@@ -321,7 +321,8 @@ function _init()
 		red=rot_tab(128),blue=rot_tab(160),
 		ufo=rot_tab(176),fly=rot_tab(140),
 		bug=rot_tab(156)}
-	stage=dbg_start-1
+	-- dbg_start only in tune (testing)
+	stage=(dbg_start or 1)-1
 	-- devkit: keyboard for debug keys
 	if (dbg_keys) poke(0x5f2d,1)
 	dbg_t=0
@@ -442,11 +443,15 @@ function game()
 		lev.done+=1
 		if lev.done>=end_wait and #eb+#pb+#it==0 and p.dead==0 then
 			save_hi()
-			-- hits of a bonus/kamikaze level
-			-- for the announcement
-			last=(lev.bonus or lev.kami) and lev or nil
-			start_level()
-			next_screen()
+			-- bonus/kamikaze: first the
+			-- hits, then on
+			if lev.bonus or lev.kami then
+				bt=between_time
+				_update60=result
+			else
+				start_level()
+				next_screen()
+			end
 		end
 	end
 end
@@ -1258,9 +1263,9 @@ function start_level()
 	-- docked aliens stay until the
 	-- level ends
 	p.mt={}
-	-- battery full, no shield left
-	-- from the last level
-	p.ammo,p.inv=p.shots,0
+	-- battery full, no shield and no
+	-- scoop left from the last level
+	p.ammo,p.inv,p.scoop_t=p.shots,0,0
 	dive_cool=dive_every
 	wave_n=0
 end
@@ -1467,18 +1472,23 @@ end
 -- warp (no announcement)
 function next_screen()
 	if lev.shop then
-		wt=0
-		-- warp sound loops on channel 2
-		sfx(8,2)
-		_update60=warp
+		go_warp()
 	else
 		bt=between_time
 		_update60=between
 	end
 end
 
--- warp to the shop: stars get
--- faster and blue, then the shop
+function go_warp()
+	wt=0
+	-- warp sound loops on channel 2
+	sfx(8,2)
+	_update60=warp
+end
+
+-- warp: stars get faster and
+-- blue, then the shop or the
+-- announcement of the next level
 function warp()
 	wt+=1
 	cls(0)
@@ -1488,7 +1498,12 @@ function warp()
 		-- exit sound
 		sfx(-1,2)
 		sfx(7,0)
-		shop_open()
+		if lev.shop then
+			shop_open()
+		else
+			bt=between_time
+			_update60=between
+		end
 	end
 end
 
@@ -1563,6 +1578,25 @@ function shop()
 	print("exit the shop",38,46+#shop_list*9,shop_sel==n and 10 or 9)
 end
 
+-- hits of a bonus/kamikaze level,
+-- then always a warp
+function result()
+	cls(0)
+	stars()
+	local function mid_print(t,y,c)
+		print(t,64-#t*2,y,c)
+	end
+	mid_print(lev.bonus and "bonus stage" or "kamikaze",40,lev.bonus and 10 or 8)
+	mid_print("hits "..lev.hits.." of "..lev.n,54,11)
+	if (lev.hits==lev.n) mid_print("perfect!",64,10)
+	mid_print("score "..tostr(score,2),84,7)
+	bt-=1
+	if bt<=0 then
+		start_level()
+		go_warp()
+	end
+end
+
 -- announcement of the next level:
 -- stage, its text, bonus blinks,
 -- hits of the last bonus level
@@ -1576,13 +1610,11 @@ function between()
 	mid_print(lev.text,44,7)
 	if (lev.bonus and t()%0.5<0.35) mid_print("bonus stage",54,10)
 	if (lev.kami and t()%0.5<0.35) mid_print("kamikaze!",54,8)
-	if (last) mid_print("hits "..last.hits.." of "..last.n,70,11)
 	mid_print("score "..tostr(score,2),84,7)
 	mid_print("money "..p.money,104,9)
 	mid_print("hi "..tostr(hiscore,2),94,6)
 	bt-=1
 	if bt<=0 then
-		last=nil
 		_update60=game
 	end
 end
