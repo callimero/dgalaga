@@ -68,22 +68,22 @@ extra={
 	bullet={s=34,n=80,  fn=function() more_shots() end},
 	speed= {s=35,n=130, fn=function() p.spd=min(p.spd+spd_step,spd_max) end},
 	shield={s=36,n=220, fn=function() p.inv=max(p.inv,shield_time) end},
-	single={s=37,n=330, fn=function() weapon(1) end},
-	double={s=38,n=330, fn=function() weapon(2) end},
-	triple={s=39,n=670, fn=function() weapon(3) end},
+	single={s=37,n=230, fn=function() weapon(1) end},
+	double={s=38,n=230, fn=function() weapon(2) end},
+	triple={s=39,n=370, fn=function() weapon(3) end},
 	scoop= {s=40,n=110, fn=function() p.scoop_t=scoop_time end},
-	life=  {s=41,n=670, fn=function() p.lives+=1 end},
+	life=  {s=41,n=470, fn=function() p.lives+=1 end},
 	auto=  {s=42,n=170, fn=function() p.auto=true end},
-	armor= {s=43,n=130, fn=function() more_armor() end},
-	x2=    {s=44,n=330, fn=function() set_mult(2) end},
-	x5=    {s=45,n=170, fn=function() set_mult(5) end},
+	armor= {s=43,n=230, fn=function() more_armor() end},
+	x2=    {s=44,n=130, fn=function() set_mult(2) end},
+	x5=    {s=45,n=370, fn=function() set_mult(5) end},
 	-- skulls: weaker ship, three in a
 	-- row trigger something
-	skullr={s=56,n=80,  fn=function() skull("r") end},
-	skullb={s=57,n=80,  fn=function() skull("b") end},
-	skullg={s=58,n=80,  fn=function() skull("g") end},
+	skullr={s=56,n=150,  fn=function() skull("r") end},
+	skullb={s=57,n=150,  fn=function() skull("b") end},
+	skullg={s=58,n=150,  fn=function() skull("g") end},
 	-- meteor storm, ends the level
-	storm= {s=59,n=100, fn=function() p.storm=true end},
+	storm= {s=59,n=150, fn=function() p.storm=true end},
 }
 it={} -- falling extras and coins
 
@@ -206,16 +206,20 @@ warp_time=240   -- frames of the warp
 storm_chance=0.25 -- per warp
 storm_gm=30     -- galagometers long
                 -- (1 gm/s normal)
-gm_pts=5000     -- points per gm
+gm_pts=50       -- points per gm
 storm_spd=1   -- px/frame meteors
 storm_boost=2 -- speed with fire
 storm_dense=0.05 -- new meteors per
                 -- frame (x speed)
 storm_full=0.9  -- part of the time
                 -- boosted for the
-                -- full boost bonus
-                -- (100000 + money)
+                -- full boost bonus:
+storm_bonus=1000 -- points
 storm_money=500
+storm_gap=6     -- px at least between
+                -- two meteors (also
+                -- when a fast one
+                -- catches up)
 -- meteor sprites: odd ones 1x1,
 -- even ones 2x2
 meteors={7,23,8,10,12}
@@ -1560,27 +1564,35 @@ function storm()
 	local f,til=1,0
 	cls(0)
 	if not sw then
-		st+=1
-		if btn(4) or btn(5) then
-			f=storm_boost
-			sbt+=1
-			sb+=f/60
+		if (btn(4) or btn(5)) f=storm_boost
+		-- gm and boost time count until
+		-- the distance is flown, then no
+		-- new meteors, the last ones
+		-- still have to be dodged
+		if sg<storm_gm then
+			st+=1
+			if f>1 then
+				sbt+=1
+				sb+=f/60
+			end
+			local g=sg
+			sg=min(sg+f/60,storm_gm)
+			-- points for every full gm
+			if (flr(sg)>flr(g)) pts(gm_pts)
+			if (rnd()<storm_dense*f) new_meteor()
+		elseif #mts==0 then
+			-- all gone: soon the result
+			sw,sok=dead_time-30,true
 		end
-		local g=sg
-		sg=min(sg+f/60,storm_gm)
-		-- points for every full gm
-		if (flr(sg)>flr(g)) pts(gm_pts)
 		if (btn(⬅️)) p.x-=p.spd til=-1
 		if (btn(➡️)) p.x+=p.spd til=1
 		p.x=mid(-2,p.x,122)
-		if (rnd()<storm_dense*f) add(mts,{s=rnd(meteors),x=rnd(144)-16,y=-16,v=storm_spd*(0.8+rnd(0.4)),fl=rnd()<0.5})
-		if (sg>=storm_gm) sw,sok=0,true
 	else
 		sw+=1
 	end
 	stars(2*f)
 	for m in all(mts) do
-		local z=2-m.s%2
+		local z=m.z
 		m.y+=m.v*f
 		spr(m.s,m.x,m.y,z,z,m.fl)
 		if not sw and abs(m.x+4*z-p.x-4)<3*z+ship_r and abs(m.y+4*z-p.y-4)<3*z+ship_r then
@@ -1604,14 +1616,35 @@ function storm()
 		sbon,sfull=0,sok and sbt>st*storm_full
 		if (sok) sbon=flr(sb)*(gm_pts>>16)
 		if sfull then
-			sbon+=10*(10000>>16)
+			sbon+=storm_bonus>>16
 			p.money+=storm_money
 		end
+		-- x2/x5 count for the bonus too
+		sbon*=p.mult
 		score+=sbon
 		save_hi()
-		bt=between_time
+		bt=between_time*2
 		_update60=storm_end
 	end
+end
+
+-- a new meteor at the top, left
+-- out when it comes too close to
+-- one beside it: now, or when that
+-- one leaves the screen (a faster
+-- one catches up), the distance
+-- changes evenly in between
+function new_meteor()
+	local o={s=rnd(meteors),x=rnd(144)-16,y=-16,v=storm_spd*(0.8+rnd(0.4)),fl=rnd()<0.5}
+	o.z=2-o.s%2
+	local h=8*o.z+storm_gap
+	for m in all(mts) do
+		if abs(o.x+4*o.z-m.x-4*m.z)<4*(o.z+m.z)+storm_gap then
+			local d=m.y-o.y
+			if (min(d,d+(m.v-o.v)*(128-m.y)/m.v)<h) return
+		end
+	end
+	add(mts,o)
 end
 
 function storm_end()
@@ -1623,7 +1656,7 @@ function storm_end()
 		mid_print("speed bonus "..tostr(sbon,2),56,11)
 		if (sfull) mid_print("full boost! +"..storm_money.." money",66,10)
 	else
-		mid_print("hit! no bonus",56,8)
+		mid_print("no bonus",56,8)
 	end
 	mid_print("score "..tostr(score,2),84,7)
 	bt-=1

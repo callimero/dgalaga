@@ -99,14 +99,16 @@ Ein Pazifisten-Level: Über das Extra oder manchmal aus dem Warp heraus
 gerät man in einen Meteoritensturm. Schießen geht nicht, nur ausweichen.
 
 - Der Sturm ist 30 **Galagometer** (Gm) lang, normal fliegt man 1 Gm pro
-  Sekunde. Jedes Gm bringt 5000 Punkte.
+  Sekunde. Jedes Gm bringt 50 Punkte.
 - **Feuertaste halten** fliegt schneller – man ist früher durch, und
   schnell geflogene Gm zählen doppelt.
 - Wer fast die ganze Zeit (über 90 %) Vollgas gibt, bekommt zusätzlich
-  **100.000 Punkte und 500 Geld**.
+  **1000 Punkte und 500 Geld**. Laufende Punkte ×2/×5
+  zählen für alles mit, auch für den Bonus.
 - Ein Treffer kostet **kein Leben**, beendet aber den Sturm: Die Punkte
   bis dahin bleiben, Bonus und Geld gibt es keine.
-- Danach geht es mit dem nächsten Level weiter – oder in den Shop.
+- Nach dem Ziel kommen keine neuen Meteore mehr, den letzten muss man
+  noch ausweichen. Danach geht es mit dem nächsten Level weiter – oder in den Shop.
 
 ## Stand
 
