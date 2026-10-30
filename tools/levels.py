@@ -15,14 +15,14 @@ Map starts with "DG" and the format version (3), then per level:
   per stream: delay/4, gap (frames), speed*16, kind, count
               (kind/count only used in bonus levels),
               segments m, then 1+3m points as x+64, y+64
-kinds: 1 red, 2 green, 3 blue, 4 bugm, 5 ufo, 6 mother, 7 flym, 8 greenm,
-9 fly, 10 bug
+kinds: 1 red, 2 draco, 3 blueb, 4 bugm, 5 ufo, 6 mother, 7 flym, 8 dracom,
+9 fly, 10 bug, 11 greenb
 """
 import sys
 
-KIND = {'.': 0, 'r': 1, 'g': 2, 'b': 3, 'B': 4, 'u': 5, 'M': 6, 'F': 7, 'G': 8, 'f': 9, 'k': 10}
-KIND_NAME = {'red': 1, 'green': 2, 'blue': 3, 'bugm': 4, 'ufo': 5, 'mother': 6,
-             'flym': 7, 'greenm': 8, 'fly': 9, 'bug': 10}
+KIND = {'.': 0, 'r': 1, 'g': 2, 'b': 3, 'B': 4, 'u': 5, 'M': 6, 'F': 7, 'G': 8, 'f': 9, 'k': 10, 'K': 11}
+KIND_NAME = {'red': 1, 'draco': 2, 'blueb': 3, 'bugm': 4, 'ufo': 5, 'mother': 6,
+             'flym': 7, 'dracom': 8, 'fly': 9, 'bug': 10, 'greenb': 11}
 
 
 def mirror(pts):
@@ -68,7 +68,7 @@ LEVELS = [
         'streams': [
             dict(delay=0, gap=10, speed=1.5, kind='red', count=8,
                  pts=[(-12, 20), (60, 124), (70, -20), (140, 60)]),
-            dict(delay=100, gap=10, speed=1.5, kind='green', count=8,
+            dict(delay=100, gap=10, speed=1.5, kind='draco', count=8,
                  pts=[(140, 30), (60, 134), (50, -20), (-12, 70)]),
         ]},
 ]
@@ -92,7 +92,7 @@ def encode(lv):
         out = [3] + text(lv)
         return [len(out) + 1] + out
     if lv.get('kami'):
-        # {'kami': 'green', 'waves': 5}
+        # {'kami': 'draco', 'waves': 5}
         out = [2] + text(lv) + [KIND_NAME[lv['kami']], lv.get('waves', 5)]
         return [len(out) + 1] + out
     out = [1 if lv.get('bonus') else 0] + text(lv)

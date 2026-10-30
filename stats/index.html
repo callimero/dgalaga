@@ -1,0 +1,518 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dgalaga Statistik</title>
+<style>
+:root {
+  --surface-0: #f4f4f2;
+  --surface-1: #fcfcfb;
+  --border: #e2e1dc;
+  --grid: #ebeae6;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #85847f;
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --good: #0ca30c;
+  --critical: #d03b3b;
+  --accent: #2a78d6;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --surface-0: #111110;
+    --surface-1: #1a1a19;
+    --border: #33332f;
+    --grid: #2a2a27;
+    --text-primary: #f0efec;
+    --text-secondary: #c3c2b7;
+    --text-muted: #8d8c84;
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --good: #0ca30c;
+    --critical: #e66767;
+    --accent: #3987e5;
+  }
+}
+:root[data-theme="dark"] {
+  --surface-0: #111110;
+  --surface-1: #1a1a19;
+  --border: #33332f;
+  --grid: #2a2a27;
+  --text-primary: #f0efec;
+  --text-secondary: #c3c2b7;
+  --text-muted: #8d8c84;
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --good: #0ca30c;
+  --critical: #e66767;
+  --accent: #3987e5;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--surface-0);
+  color: var(--text-primary);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+main { max-width: 1100px; margin: 0 auto; padding: 20px 16px 48px; }
+h1 { font-size: 22px; margin: 0 0 4px; }
+h2 { font-size: 16px; margin: 0 0 2px; }
+.sub { color: var(--text-secondary); margin: 0 0 14px; font-size: 13px; }
+.bar {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  margin: 14px 0 18px;
+}
+button, select {
+  font: inherit; color: var(--text-primary); background: var(--surface-1);
+  border: 1px solid var(--border); border-radius: 6px; padding: 6px 12px;
+  cursor: pointer;
+}
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button:disabled { opacity: .5; cursor: default; }
+.file { color: var(--text-secondary); font-size: 13px; }
+.drop {
+  border: 2px dashed var(--border); border-radius: 10px; padding: 40px 16px;
+  text-align: center; color: var(--text-secondary); background: var(--surface-1);
+}
+.drop.over { border-color: var(--accent); color: var(--text-primary); }
+.tiles {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px; margin-bottom: 16px;
+}
+.tile {
+  background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px 14px;
+}
+.tile .v { font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.tile .l { color: var(--text-secondary); font-size: 12px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 820px) { .grid2 { grid-template-columns: 1fr; } }
+.card {
+  background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: 10px; padding: 16px; margin-bottom: 16px; min-width: 0;
+}
+.legend { display: flex; gap: 14px; font-size: 12px; color: var(--text-secondary); margin: 6px 0 8px; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+svg { display: block; width: 100%; overflow: visible; }
+svg text { fill: var(--text-secondary); font-size: 12px; }
+svg .val { fill: var(--text-primary); font-variant-numeric: tabular-nums; }
+svg .axis { stroke: var(--border); }
+svg .gl { stroke: var(--grid); }
+svg .hit { fill: transparent; }
+svg .mk { transition: opacity .1s; }
+svg g.dim .mk { opacity: .35; }
+svg g.row:hover .mk { opacity: 1; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 13px; }
+th, td { text-align: right; padding: 5px 8px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--text-secondary); font-weight: 500; }
+.scroll { overflow-x: auto; }
+.pos { color: var(--good); }
+.neg { color: var(--critical); }
+.muted { color: var(--text-muted); }
+#tip {
+  position: fixed; pointer-events: none; z-index: 10; display: none;
+  background: var(--surface-1); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;
+  font-size: 12px; box-shadow: 0 4px 16px rgba(0,0,0,.18); max-width: 260px;
+}
+#tip b { display: block; margin-bottom: 2px; }
+.note { color: var(--text-muted); font-size: 12px; margin-top: 8px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>dgalaga Statistik</h1>
+  <p class="sub">Auswertung von <code>dgalaga_log.csv</code> (entsteht mit <code>dbg_log=true</code> neben der Cart in <code>carts</code>). Die Datei wird nur im Browser gelesen.</p>
+
+  <div class="bar">
+    <button class="primary" id="pickLog">Log-CSV wählen</button>
+    <button id="reload" disabled>Neu laden</button>
+    <button id="pickCart">Cart wählen (optional, für Soll-Werte)</button>
+    <select id="runSel" disabled><option value="">alle Spiele</option></select>
+    <span class="file" id="fileInfo"></span>
+  </div>
+  <input type="file" id="fileLog" accept=".csv,text/csv" hidden>
+  <input type="file" id="fileCart" accept=".p8" hidden>
+
+  <div id="empty" class="drop">CSV hierher ziehen oder oben wählen.<br><span class="note">Chrome/Edge merken sich die Datei, danach reicht „Neu laden“.</span></div>
+  <div id="out" hidden></div>
+</main>
+<div id="tip"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const CART_N = {};          // extra name -> n from the cart
+let logHandle = null, logText = null, logName = '';
+
+// ---------- remembered file handles (IndexedDB) ----------
+function idb() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open('dgalaga-stats', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('h');
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+async function idbSet(k, v) {
+  try { const db = await idb(); db.transaction('h', 'readwrite').objectStore('h').put(v, k); } catch (e) {}
+}
+async function idbGet(k) {
+  try {
+    const db = await idb();
+    return await new Promise(res => {
+      const q = db.transaction('h').objectStore('h').get(k);
+      q.onsuccess = () => res(q.result); q.onerror = () => res(null);
+    });
+  } catch (e) { return null; }
+}
+async function readHandle(h, ask) {
+  let perm = await h.queryPermission({ mode: 'read' });
+  if (perm !== 'granted' && ask) perm = await h.requestPermission({ mode: 'read' });
+  if (perm !== 'granted') return null;
+  const f = await h.getFile();
+  return { text: await f.text(), name: f.name, mod: f.lastModified };
+}
+const fsa = 'showOpenFilePicker' in window;
+
+async function pick(kind) {
+  if (!fsa) { $(kind === 'log' ? '#fileLog' : '#fileCart').click(); return; }
+  try {
+    const [h] = await showOpenFilePicker({
+      types: [kind === 'log'
+        ? { description: 'CSV', accept: { 'text/csv': ['.csv'] } }
+        : { description: 'PICO-8 Cart', accept: { 'text/plain': ['.p8'] } }]
+    });
+    await idbSet(kind, h);
+    const r = await readHandle(h, true);
+    if (r) kind === 'log' ? (logHandle = h, setLog(r)) : setCart(r.text);
+  } catch (e) { /* cancelled */ }
+}
+$('#pickLog').onclick = () => pick('log');
+$('#pickCart').onclick = () => pick('cart');
+$('#fileLog').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  setLog({ text: await f.text(), name: f.name, mod: f.lastModified });
+};
+$('#fileCart').onchange = async e => {
+  const f = e.target.files[0]; if (f) setCart(await f.text());
+};
+$('#reload').onclick = async () => {
+  if (logHandle) {
+    const r = await readHandle(logHandle, true);
+    if (r) setLog(r);
+    const ch = await idbGet('cart');
+    if (ch) { const c = await readHandle(ch, true); if (c) setCart(c.text, true); }
+  } else if (logText) render();
+};
+// drag and drop
+const dz = $('#empty');
+['dragover', 'dragenter'].forEach(ev => document.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('over'); }));
+['dragleave', 'drop'].forEach(ev => document.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove('over'); }));
+document.addEventListener('drop', async e => {
+  for (const f of e.dataTransfer.files) {
+    const t = await f.text();
+    if (f.name.endsWith('.p8')) setCart(t);
+    else setLog({ text: t, name: f.name, mod: f.lastModified });
+  }
+});
+// on start: remembered files (permission may need a click on "Neu laden")
+(async () => {
+  if (!fsa) return;
+  const h = await idbGet('log');
+  if (h) {
+    logHandle = h;
+    $('#reload').disabled = false;
+    $('#fileInfo').textContent = h.name + ' – „Neu laden“ klicken';
+    const r = await readHandle(h, false);
+    if (r) setLog(r);
+  }
+  const ch = await idbGet('cart');
+  if (ch) { const c = await readHandle(ch, false); if (c) setCart(c.text, true); }
+})();
+
+function setLog(r) {
+  logText = r.text; logName = r.name;
+  $('#reload').disabled = false;
+  $('#fileInfo').textContent = r.name + ' · Stand ' + new Date(r.mod).toLocaleString('de-DE');
+  render();
+}
+function setCart(text, quiet) {
+  for (const k in CART_N) delete CART_N[k];
+  const m = text.match(/^extra=\{([\s\S]*?)^\}/m);
+  if (m) for (const x of m[1].matchAll(/^\s*(\w+)\s*=\s*\{s=\d+,\s*n=(\d+)/gm)) CART_N[x[1]] = +x[2];
+  $('#pickCart').textContent = Object.keys(CART_N).length
+    ? 'Cart: ' + Object.keys(CART_N).length + ' Extras' : 'Cart wählen (optional, für Soll-Werte)';
+  if (logText) render();
+}
+$('#runSel').onchange = render;
+
+// ---------- parsing ----------
+// columns: run,sec,stage,kills,event,what,value
+function parse(text) {
+  const runs = new Map();
+  for (const line of text.split(/\r?\n/)) {
+    const c = line.split(',');
+    if (c.length < 6 || c[0] === 'run') continue;
+    const [run, sec, stage, kills, ev, what, val] = c;
+    if (!runs.has(run)) runs.set(run, { id: run, ev: [], kills: 0, stage: 0, sec: 0, levels: 0 });
+    const r = runs.get(run);
+    const e = { sec: +sec, stage: +stage, kills: +kills, ev, what, val };
+    r.ev.push(e);
+    r.kills = Math.max(r.kills, e.kills);
+    r.stage = Math.max(r.stage, e.stage);
+    r.sec = Math.max(r.sec, e.sec);
+    if (ev === 'level') r.levels++;
+    if (ev === 'over') { r.score = +what; r.hi = +val; }
+  }
+  // a cart start logs level 1 before the title: runs that never
+  // got a kill and never ended are idle cart starts
+  return [...runs.values()].filter(r => r.kills > 0 || r.score !== undefined);
+}
+
+// ---------- tooltip ----------
+const tip = $('#tip');
+function showTip(e, html) {
+  tip.innerHTML = html; tip.style.display = 'block';
+  const w = tip.offsetWidth, h = tip.offsetHeight;
+  let x = e.clientX + 14, y = e.clientY + 14;
+  if (x + w > innerWidth - 8) x = e.clientX - w - 14;
+  if (y + h > innerHeight - 8) y = e.clientY - h - 14;
+  tip.style.left = x + 'px'; tip.style.top = y + 'px';
+}
+function hideTip() { tip.style.display = 'none'; }
+function bindTips(root, fn) {
+  root.querySelectorAll('[data-i]').forEach(g => {
+    g.addEventListener('mousemove', e => showTip(e, fn(+g.dataset.i)));
+    g.addEventListener('mouseleave', hideTip);
+  });
+}
+
+// ---------- charts (plain SVG) ----------
+const NS = 'http://www.w3.org/2000/svg';
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const fmt = n => Math.round(n).toLocaleString('de-DE');
+// bar with only the data end rounded (r px)
+function hPath(x, y, w, h, r) {
+  if (w <= 0) return '';
+  r = Math.min(r, w, h / 2);
+  return `M${x},${y}h${w - r}a${r},${r} 0 0 1 ${r},${r}v${h - 2 * r}a${r},${r} 0 0 1 ${-r},${r}h${-(w - r)}z`;
+}
+function vPath(x, y, w, h, r) {
+  if (h <= 0) return '';
+  r = Math.min(r, h, w / 2);
+  return `M${x},${y + h}v${-(h - r)}a${r},${r} 0 0 1 ${r},${-r}h${w - 2 * r}a${r},${r} 0 0 1 ${r},${r}v${h - r}z`;
+}
+// axis end: 4 even steps of 1/2/5 x 10^k (counts stay whole)
+function niceMax(v) {
+  const raw = Math.max(1, v / 4), p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p;
+  const step = Math.max(1, (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p);
+  return step * 4;
+}
+// run id from the cart: 2026-10-29 18:50:5 -> 18:50:05
+const fmtId = id => id.replace(/\d+/g, d => d.padStart(2, '0'));
+
+// horizontal grouped bars: rows [{label, values:[..]}], series [{label,color}]
+function hbars(el, rows, series, tipFn) {
+  const bh = 10, gap = 2, rowGap = 10, labelW = 86, valW = 40;
+  const rowH = series.length * bh + (series.length - 1) * gap;
+  const W = Math.max(280, el.clientWidth || 480), H = rows.length * (rowH + rowGap) + 22;
+  const max = niceMax(Math.max(1, ...rows.flatMap(r => r.values)));
+  const pw = W - labelW - valW;
+  let s = `<svg viewBox="0 0 ${W} ${H}" height="${H}" role="img">`;
+  for (let t = 0; t <= 4; t++) {
+    const x = labelW + pw * t / 4;
+    s += `<line class="gl" x1="${x}" x2="${x}" y1="0" y2="${H - 20}"/>`;
+    s += `<text x="${x}" y="${H - 6}" text-anchor="middle">${fmt(max * t / 4)}</text>`;
+  }
+  rows.forEach((r, i) => {
+    const y0 = i * (rowH + rowGap) + 4;
+    s += `<g class="row" data-i="${i}"><rect class="hit" x="0" y="${y0 - rowGap / 2}" width="${W}" height="${rowH + rowGap}"/>`;
+    s += `<text x="${labelW - 8}" y="${y0 + rowH / 2 + 4}" text-anchor="end">${esc(r.label)}</text>`;
+    r.values.forEach((v, k) => {
+      const y = y0 + k * (bh + gap), w = pw * v / max;
+      s += `<path class="mk" d="${hPath(labelW, y, w, bh, 4)}" fill="${series[k].color}"/>`;
+      if (k === 0 || series.length < 3) s += `<text class="val" x="${labelW + w + 4}" y="${y + bh - 1}">${fmt(v)}</text>`;
+    });
+    s += '</g>';
+  });
+  s += `<line class="axis" x1="${labelW}" x2="${labelW}" y1="0" y2="${H - 20}"/></svg>`;
+  el.innerHTML = s;
+  bindTips(el, tipFn);
+}
+
+// vertical bars, one series: items [{label, value}]
+function vbars(el, items, color, tipFn, yLabel) {
+  const W = Math.max(280, el.clientWidth || 480), H = 220, left = 48, bottom = 24, top = 8;
+  const n = items.length, pw = W - left - 4, ph = H - top - bottom;
+  const max = niceMax(Math.max(1, ...items.map(d => d.value)));
+  const slot = pw / Math.max(n, 1), bw = Math.max(2, Math.min(28, slot - 2));
+  let s = `<svg viewBox="0 0 ${W} ${H}" height="${H}" role="img">`;
+  for (let t = 0; t <= 4; t++) {
+    const y = top + ph - ph * t / 4;
+    s += `<line class="gl" x1="${left}" x2="${W}" y1="${y}" y2="${y}"/>`;
+    s += `<text x="${left - 6}" y="${y + 4}" text-anchor="end">${fmt(max * t / 4)}</text>`;
+  }
+  const every = Math.ceil(n / Math.max(1, Math.floor(pw / 34)));
+  items.forEach((d, i) => {
+    const x = left + i * slot + (slot - bw) / 2, h = ph * d.value / max;
+    s += `<g class="row" data-i="${i}"><rect class="hit" x="${left + i * slot}" y="${top}" width="${slot}" height="${ph}"/>`;
+    s += `<path class="mk" d="${vPath(x, top + ph - h, bw, h, 4)}" fill="${color}"/>`;
+    if (i % every === 0) s += `<text x="${x + bw / 2}" y="${H - 6}" text-anchor="middle">${esc(d.label)}</text>`;
+    s += '</g>';
+  });
+  s += `<line class="axis" x1="${left}" x2="${W}" y1="${top + ph}" y2="${top + ph}"/>`;
+  if (yLabel) s += `<text x="${left}" y="${top - 0}" dy="-2" class="muted">${esc(yLabel)}</text>`;
+  s += '</svg>';
+  el.innerHTML = s;
+  bindTips(el, tipFn);
+}
+
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const legend = items => `<div class="legend">${items.map(([l, c]) => `<span><i style="background:${c}"></i>${esc(l)}</span>`).join('')}</div>`;
+
+// ---------- render ----------
+function render() {
+  if (!logText) return;
+  const all = parse(logText);
+  // run selector (newest first)
+  const sel = $('#runSel'), cur = sel.value;
+  sel.innerHTML = '<option value="">alle Spiele (' + all.length + ')</option>' +
+    all.map((r, i) => `<option value="${esc(r.id)}">Spiel ${i + 1} · ${esc(fmtId(r.id))}${r.score !== undefined ? ' · ' + fmt(r.score) : ''}</option>`).reverse().join('');
+  sel.value = all.some(r => r.id === cur) ? cur : '';
+  sel.disabled = false;
+  const runs = sel.value ? all.filter(r => r.id === sel.value) : all;
+
+  $('#empty').hidden = true;
+  const out = $('#out'); out.hidden = false;
+  if (!runs.length) { out.innerHTML = '<div class="card">Keine Spiele in der Datei.</div>'; return; }
+
+  const evs = runs.flatMap(r => r.ev);
+  const kills = runs.reduce((a, r) => a + r.kills, 0);
+  const levels = runs.reduce((a, r) => a + r.levels, 0);
+  const ended = runs.filter(r => r.score !== undefined);
+  const best = ended.length ? Math.max(...ended.map(r => r.score)) : null;
+  const hi = ended.length ? Math.max(...ended.map(r => r.hi)) : null;
+  const storms = evs.filter(e => e.ev === 'storm');
+  const stormOk = storms.filter(e => e.what === 'ok').length;
+  const money = evs.filter(e => e.ev === 'get' && e.what === 'coin').reduce((a, e) => a + (+e.val || 0), 0);
+
+  // extras
+  const ex = new Map();
+  const exRow = k => ex.get(k) || (ex.set(k, { k, drop: 0, get: 0 }), ex.get(k));
+  for (const e of evs) {
+    if (e.ev === 'drop') exRow(e.what).drop++;
+    if (e.ev === 'get' && e.what !== 'coin') exRow(e.what).get++;
+  }
+  for (const k in CART_N) if (CART_N[k] > 0) exRow(k);
+  const exList = [...ex.values()].sort((a, b) => b.drop - a.drop || a.k.localeCompare(b.k));
+
+  // coins by value
+  const co = new Map();
+  for (const e of evs) {
+    if (e.what !== 'coin') continue;
+    const v = +e.val; if (!co.has(v)) co.set(v, { v, drop: 0, get: 0 });
+    if (e.ev === 'coin') co.get(v).drop++;
+    if (e.ev === 'get') co.get(v).get++;
+  }
+  const coList = [...co.values()].sort((a, b) => a.v - b.v);
+
+  // level types
+  const lt = { normal: 0, bonus: 0, kami: 0, shop: 0 };
+  for (const e of evs) if (e.ev === 'level') lt[e.what] = (lt[e.what] || 0) + 1;
+
+  const tile = (v, l) => `<div class="tile"><div class="v">${v}</div><div class="l">${l}</div></div>`;
+  const c1 = css('--series-1'), c2 = css('--series-2');
+  const hasN = Object.keys(CART_N).length > 0;
+
+  out.innerHTML = `
+  <div class="tiles">
+    ${tile(fmt(runs.length), 'Spiele')}
+    ${tile(fmt(kills), 'Abschüsse')}
+    ${tile(fmt(levels), 'Level gespielt')}
+    ${tile((levels / runs.length).toLocaleString('de-DE', { maximumFractionDigits: 1 }), 'Level pro Spiel')}
+    ${tile(best === null ? '–' : fmt(best), 'bester Score')}
+    ${tile(hi === null ? '–' : fmt(hi), 'Highscore')}
+    ${tile(fmt(money), 'Geld eingesammelt')}
+    ${tile(storms.length ? stormOk + ' / ' + storms.length : '–', 'Meteorstürme geschafft')}
+  </div>
+
+  <div class="card">
+    <h2>Extras: gefallen und eingesammelt</h2>
+    ${legend([['gefallen', c1], ['eingesammelt', c2]])}
+    <div id="chEx"></div>
+  </div>
+
+  <div class="card">
+    <h2>Extras: wie oft sie fallen</h2>
+    <p class="sub">„1 je x Abschüsse“ = Abschüsse geteilt durch Drops${hasN ? '. Soll = n aus der Cart; fallen bei einem Abschuss mehrere, kommt nur eins, darum liegt Ist etwas höher' : ' – Cart wählen, um mit dem Soll aus der Cart zu vergleichen'}.</p>
+    <div class="scroll"><table>
+      <tr><th>Extra</th><th>gefallen</th><th>eingesammelt</th><th>Quote</th><th>Ist: 1 je x</th>${hasN ? '<th>Soll: n</th><th>Ist / Soll</th>' : ''}</tr>
+      ${exList.map(r => {
+        const ist = r.drop ? kills / r.drop : null, n = CART_N[r.k];
+        const ratio = ist && n ? ist / n : null;
+        const cls = ratio === null ? '' : ratio > 1.5 ? 'neg' : ratio < 0.67 ? 'pos' : '';
+        return `<tr><td>${esc(r.k)}</td><td>${r.drop}</td><td>${r.get}</td>
+          <td>${r.drop ? Math.round(100 * r.get / r.drop) + ' %' : '–'}</td>
+          <td>${ist ? fmt(ist) : '–'}</td>
+          ${hasN ? `<td>${n ?? '–'}</td><td class="${cls}">${ratio ? ratio.toLocaleString('de-DE', { maximumFractionDigits: 2 }) : '–'}</td>` : ''}</tr>`;
+      }).join('')}
+    </table></div>
+    <p class="note">Ist / Soll unter 1 (grün): fällt öfter als eingestellt, über 1 (rot): seltener. Wenige Daten streuen stark: bei unter ~10 Drops pro Extra sind die Ist-Werte nur grob.</p>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h2>Münzen nach Wert</h2>
+      ${legend([['gefallen', c1], ['eingesammelt', c2]])}
+      <div id="chCo"></div>
+    </div>
+    <div class="card">
+      <h2>Level nach Typ</h2>
+      <p class="sub">gespielte Level (Shops zählen mit)</p>
+      <div id="chLt"></div>
+    </div>
+  </div>
+
+  ${runs.length > 1 ? `
+  <div class="grid2">
+    <div class="card"><h2>Score pro Spiel</h2><p class="sub">nur Spiele mit Game over</p><div id="chSc"></div></div>
+    <div class="card"><h2>Erreichte Stage pro Spiel</h2><p class="sub">alle Spiele, in Reihenfolge</p><div id="chSt"></div></div>
+  </div>` : ''}
+
+  <div class="card">
+    <h2>Spiele</h2>
+    <div class="scroll"><table>
+      <tr><th>Spiel</th><th>Start</th><th>Dauer</th><th>Stage</th><th>Level</th><th>Abschüsse</th><th>Extras</th><th>Score</th></tr>
+      ${runs.map((r, i) => `<tr><td>${all.indexOf(r) + 1}</td><td>${esc(fmtId(r.id))}</td>
+        <td>${Math.floor(r.sec / 60)}:${String(r.sec % 60).padStart(2, '0')}</td>
+        <td>${r.stage}</td><td>${r.levels}</td><td>${r.kills}</td>
+        <td>${r.ev.filter(e => e.ev === 'get' && e.what !== 'coin').length}</td>
+        <td>${r.score !== undefined ? fmt(r.score) : '<span class="muted">kein Game over</span>'}</td></tr>`).reverse().join('')}
+    </table></div>
+  </div>`;
+
+  hbars($('#chEx'), exList.map(r => ({ label: r.k, values: [r.drop, r.get] })), [{ color: c1 }, { color: c2 }],
+    i => { const r = exList[i]; return `<b>${esc(r.k)}</b>gefallen: ${r.drop}<br>eingesammelt: ${r.get}` +
+      (r.drop ? `<br>1 je ${fmt(kills / r.drop)} Abschüsse` : '') + (CART_N[r.k] ? `<br>Soll: 1 je ${CART_N[r.k]}` : ''); });
+  hbars($('#chCo'), coList.map(r => ({ label: r.v + ' Geld', values: [r.drop, r.get] })), [{ color: c1 }, { color: c2 }],
+    i => { const r = coList[i]; return `<b>Münze ${r.v}</b>gefallen: ${r.drop}<br>eingesammelt: ${r.get}<br>Geld: ${fmt(r.get * r.v)}`; });
+  const ltList = Object.entries(lt).filter(([, v]) => v > 0);
+  hbars($('#chLt'), ltList.map(([k, v]) => ({ label: k, values: [v] })), [{ color: c1 }],
+    i => `<b>${esc(ltList[i][0])}</b>${ltList[i][1]} gespielt`);
+  if (runs.length > 1) {
+    const sc = ended;
+    vbars($('#chSc'), sc.map(r => ({ label: all.indexOf(r) + 1, value: r.score })), c1,
+      i => { const r = sc[i]; return `<b>Spiel ${all.indexOf(r) + 1}</b>${esc(fmtId(r.id))}<br>Score: ${fmt(r.score)}<br>Stage ${r.stage}, ${r.kills} Abschüsse`; });
+    vbars($('#chSt'), runs.map(r => ({ label: all.indexOf(r) + 1, value: r.stage })), c1,
+      i => { const r = runs[i]; return `<b>Spiel ${all.indexOf(r) + 1}</b>${esc(fmtId(r.id))}<br>Stage ${r.stage}, ${r.levels} Level` +
+        (r.score !== undefined ? `<br>Score: ${fmt(r.score)}` : ''); });
+  }
+}
+let rt; addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(render, 150); });
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', render);
+</script>
+</body>
+</html>

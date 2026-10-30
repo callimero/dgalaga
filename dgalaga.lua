@@ -1,6 +1,9 @@
 -- todo
-	-- attacks
-	-- meteor storm
+	-- catching a skull will add to the chances that extra life and cash multiplier bonuses appear.
+ -- red, green and blue skulls will give you a very good weapon. full fire power and the best ship speed. 
+	-- catching a warp icon in an alien stage with a bonus level will give you a perfect score. 
+  
+
  	
 -- gameplay tuning: put settings here to try
 -- them out. runs first in _init and
@@ -8,13 +11,14 @@
 function tune()
 --testing
 --	dbg_start = 1 --startlevel
---	ship0={spd=1.6,lives=6,w=3,shots=12,armor=8}
+-- ship0={spd=1.6,lives=3,w=3,shots=22,armor=10}
 --	dbg_keys=true -- debug, pc only:
                -- k/l level chose, w weapon,
                -- j drops dbg_extra,
                -- p pause
 --	ship0.money=1000
---	dbg_extra="storm"
+-- dbg_extra="scoop"
+--	dbg_log=true -- csv log (pc only)
 
 	
 -- implementieren!	
@@ -65,25 +69,25 @@ mult_time=1800  -- frames of points
 -- them falls. fn: what it does
 item_spd=0.6    -- px/frame falling
 extra={
-	bullet={s=34,n=80,  fn=function() more_shots() end},
+	bullet={s=34,n=130,  fn=function() more_shots() end},
 	speed= {s=35,n=130, fn=function() p.spd=min(p.spd+spd_step,spd_max) end},
 	shield={s=36,n=220, fn=function() p.inv=max(p.inv,shield_time) end},
-	single={s=37,n=230, fn=function() weapon(1) end},
-	double={s=38,n=230, fn=function() weapon(2) end},
-	triple={s=39,n=370, fn=function() weapon(3) end},
-	scoop= {s=40,n=110, fn=function() p.scoop_t=scoop_time end},
+	single={s=37,n=180, fn=function() weapon(1) end},
+	double={s=38,n=200, fn=function() weapon(2) end},
+	triple={s=39,n=300, fn=function() weapon(3) end},
+	scoop= {s=40,n=100, fn=function() p.scoop_t=scoop_time end},
 	life=  {s=41,n=470, fn=function() p.lives+=1 end},
 	auto=  {s=42,n=170, fn=function() p.auto=true end},
-	armor= {s=43,n=230, fn=function() more_armor() end},
+	armor= {s=43,n=250, fn=function() more_armor() end},
 	x2=    {s=44,n=130, fn=function() set_mult(2) end},
-	x5=    {s=45,n=370, fn=function() set_mult(5) end},
+	x5=    {s=45,n=270, fn=function() set_mult(5) end},
 	-- skulls: weaker ship, three in a
 	-- row trigger something
-	skullr={s=56,n=150,  fn=function() skull("r") end},
-	skullb={s=57,n=150,  fn=function() skull("b") end},
-	skullg={s=58,n=150,  fn=function() skull("g") end},
+	skullr={s=56,n=250,  fn=function() skull("r") end},
+	skullb={s=57,n=250,  fn=function() skull("b") end},
+	skullg={s=58,n=250,  fn=function() skull("g") end},
 	-- meteor storm, ends the level
-	storm= {s=59,n=150, fn=function() p.storm=true end},
+	storm= {s=59,n=250, fn=function() p.storm=true end},
 }
 it={} -- falling extras and coins
 
@@ -130,7 +134,7 @@ s={}
 ns=100
 e={}
 ne=10
-b={} --ringbuffer later
+b={} 
 -- own shots: like a battery, each
 -- shot takes one charge (p.ammo of
 -- p.shots), it recharges all the
@@ -145,7 +149,7 @@ eshot={
 	bugm={s=51,v=1,aim=true,c1=11,c2=3},
 	mother={s=54,v=1.2,aim=true},
 	flym={s=52,v=1.1,aim=true,c1=8,c2=2},
-	greenm={s=51,v=1.1,aim=true,c1=11,c2=3},
+	dracom={s=51,v=1.1,aim=true,c1=11,c2=3},
 }
 pt={} -- particles
 eb={} -- enemy bullets
@@ -167,7 +171,7 @@ trail_life=15   -- frames a plasma
 -- written by the level editor.
 -- do not paint in the map editor!
 -- enemy kinds by number
-kinds={"red","green","blue","bugm","ufo","mother","flym","greenm","fly","bug"}
+kinds={"red","draco","blueb","bugm","ufo","mother","flym","dracom","fly","bug","greenb"}
 between_time=150 -- frames of the
                 -- screen between
                 -- levels
@@ -203,8 +207,8 @@ warp_time=240   -- frames of the warp
 -- storm_boost times faster and its
 -- gm count double. a hit ends the
 -- storm: no life lost, no bonus
-storm_chance=0.25 -- per warp
-storm_gm=30     -- galagometers long
+storm_chance=0.15 -- per warp
+storm_gm=60     -- galagometers long
                 -- (1 gm/s normal)
 gm_pts=50       -- points per gm
 storm_spd=1   -- px/frame meteors
@@ -216,13 +220,15 @@ storm_full=0.9  -- part of the time
                 -- full boost bonus:
 storm_bonus=1000 -- points
 storm_money=500
+storm_flash=6   -- frames white at
+                -- the start
 storm_gap=6     -- px at least between
                 -- two meteors (also
                 -- when a fast one
                 -- catches up)
 -- meteor sprites: odd ones 1x1,
 -- even ones 2x2
-meteors={7,23,8,10,12}
+meteors={7,23,8,10,12,14}
                 -- before a shop
 end_wait=120    -- frames the level
                 -- goes on after the
@@ -274,8 +280,8 @@ wpn={
 }
 
 -- hit points and score per kind
-hp={red=2,green=1,blue=2,bugm=12,ufo=3,mother=12,flym=10,greenm=12,fly=2,bug=4}
-worth={red=150,green=40,blue=130,bugm=200,ufo=300,mother=500,flym=300,greenm=300,fly=60,bug=100}
+hp={red=2,draco=1,blueb=2,bugm=12,ufo=3,mother=12,flym=14,dracom=12,fly=2,bug=4,greenb=2}
+worth={red=150,draco=40,blueb=330,bugm=200,ufo=300,mother=500,flym=300,dracom=300,fly=60,bug=100,greenb=130}
 flash_time=4    -- frames white
                 -- after a hit
 -- explosion: sprites 64-68,
@@ -295,28 +301,29 @@ debris_n=16     -- grey debris
 debris_v=0.5    -- speed 0.3+rnd(v)
 -- particle colors per kind
 -- {bright,dark}
-col={ship={7,12},red={8,2},green={11,3},
-	blue={12,1},bugm={14,2},
+col={ship={7,12},red={8,2},draco={11,3},
+	blueb={12,1},bugm={14,2},
 	ufo={6,13},mother={6,8},
-	flym={12,8},greenm={11,3},
+	flym={12,8},dracom={11,3},
 	fly={12,8},
-	bug={14,2}}
+	bug={14,2},greenb={11,3}}
 fx={} -- running explosions
 
 -- animations by time: per frame
 -- {sprite,flip_x,flip_y,frames}
 anim={
-	green={{144,false,false,20},{145,false,false,20}},
+	draco={{144,false,false,20},{145,false,false,20}},
 	red={{128,false,false,20},{129,false,false,20}},
-	blue={{160,false,false,20},{161,false,false,20}},
+	blueb={{160,false,false,20},{161,false,false,20}},
 	-- sz=2: sprite is 2x2
 	bugm={{164,false,false,12},{166,false,false,12},sz=2},
 	ufo={{176,false,false,20},{177,false,false,20}},
 	mother={{168,false,false,16},{170,false,false,16},sz=2},
 	flym={{132,false,false,10},{134,false,false,10},sz=2},
-	greenm={{136,false,false,14},{138,false,false,14},sz=2},
+	dracom={{136,false,false,14},{138,false,false,14},sz=2},
 	fly={{140,false,false,8},{141,false,false,8}},
 	bug={{156,false,false,16},{157,false,false,16}},
+	greenb={{172,false,false,16},{173,false,false,16}},
 	coin={{112,false,false,6},{113,false,false,6},
 		{114,false,false,6},{115,false,false,6},
 		{115,false,true,6},{114,false,true,6},
@@ -336,6 +343,10 @@ function _init()
 	-- with tostr(score,2). hiscore is
 	-- saved with cartdata
 	cartdata("callimero_dgalaga")
+	-- log: run = start time of the
+	-- game, a header per cart start
+	run_id=stat(90).."-"..stat(91).."-"..stat(92).." "..stat(93)..":"..stat(94)..":"..stat(95)
+	log_line("run,sec,stage,kills,event,what,value")
 	score=0
 	hiscore=dget(0)
 	p=new_ship()
@@ -345,12 +356,16 @@ function _init()
 		add(s,{x=rnd(128),y=rnd(128),z=rnd(10)+2})		
 	end
 	-- rotation: 8 directions per kind
-	rot={green=rot_tab(144),
-		red=rot_tab(128),blue=rot_tab(160),
+	rot={draco=rot_tab(144),
+		red=rot_tab(128),blueb=rot_tab(160),
 		ufo=rot_tab(176),fly=rot_tab(140),
-		bug=rot_tab(156)}
-	-- dbg_start only in tune (testing)
-	stage=(dbg_start or 1)-1
+		bug=rot_tab(156),greenb=rot_tab(172)}
+	-- dbg_start only in tune (testing),
+	-- counts like the shown stage
+	-- number (shops left out)
+	stage=0
+	while stage_no()<(dbg_start or 1) do stage+=1 end
+	stage-=1
 	-- devkit: keyboard for debug keys
 	if (dbg_keys) poke(0x5f2d,1)
 	dbg_t=0
@@ -501,6 +516,7 @@ function over()
 		-- overflow above 327
 		score+=(p.money>>16)*100
 		save_hi()
+		log("over",tostr(score,2),tostr(hiscore,2))
 	end
 	cls(0)
 	stars()
@@ -510,6 +526,16 @@ function over()
 	mid_print("hi "..tostr(hiscore,2),78,6)
 	-- restart the cart
 	if (fire()) run()
+end
+
+-- csv log (dbg_log): one line per
+-- event, file next to the cart
+function log(ev,what,v)
+	log_line(run_id..","..flr(t())..","..stage_no()..","..p.kills..","..ev..","..tostr(what)..","..(v or ""))
+end
+
+function log_line(l)
+	if (dbg_log) printh(l,"dgalaga_log.csv")
 end
 
 -- add points (stored >>16)
@@ -912,7 +938,7 @@ end
 -- a new ship from the start
 -- values ship0
 function new_ship()
-	local o={x=60,y=118,dead=0,inv=0,money=0,mult=1,mult_t=0,sk="",
+	local o={x=60,y=118,dead=0,inv=0,money=0,mult=1,mult_t=0,sk="",kills=0,
 		mt={},scoop_t=0}
 	for k,v in pairs(ship0) do o[k]=v end
 	o.ammo=o.shots
@@ -1048,6 +1074,7 @@ function drop_coin(x,y)
 		r-=1/c.v
 		if r<0 then
 			add(it,{x=x,y=y,coin=c,t=rnd(30)})
+			log("coin","coin",c.v)
 			return
 		end
 	end
@@ -1055,10 +1082,15 @@ end
 
 function drop(x,y)
 	local hit={}
+	p.kills+=1
 	for k,x2 in pairs(extra) do
-		if (x2.n>0 and rnd(x2.n)<1) add(hit,x2)
+		if (x2.n>0 and rnd(x2.n)<1) add(hit,k)
 	end
-	if (#hit>0) add(it,{x=x,y=y,e=rnd(hit)})
+	if #hit>0 then
+		local k=rnd(hit)
+		add(it,{x=x,y=y,e=extra[k],k=k})
+		log("drop",k)
+	end
 end
 
 -- extras fall down, the ship
@@ -1080,7 +1112,9 @@ function items()
 			if q.coin then
 				p.money+=q.coin.v
 				sfx(4,3)
+				log("get","coin",q.coin.v)
 			else
+				log("get",q.k)
 				q.e.fn()
 				sfx(3,3)
 			end
@@ -1131,7 +1165,11 @@ function hit(bu)
 		if abs(bx-en.x)<r+bu.w and abs(by-en.y)<r then
 			en.hp-=bu.dmg
 			en.fl=flash_time
-			if en.hp<=0 then
+			if en.hp<=0 and en.k=="blueb" then
+				-- a blue bug turns green and
+				-- flies on
+				en.k,en.an,en.rt,en.hp="greenb",anim.greenb,rot.greenb,hp.greenb
+			elseif en.hp<=0 then
 				pts(worth[en.k] or 0)
 				if (en.bonus) lev.hits+=1
 				drop(en.x,en.y)
@@ -1292,10 +1330,10 @@ end
 function start_level()
 	stage+=1
 	lev=load_level(stage)
+	log("level",lev.shop and "shop" or lev.bonus and "bonus" or lev.kami and "kami" or "normal")
 	e,pb,eb,it,b,fl={},{},{},{},{},{}
 	-- docked aliens stay until the
-	-- level ends
-	p.mt={}
+	-- next warp
 	-- battery full, no shield and no
 	-- scoop left from the last level
 	p.ammo,p.inv,p.scoop_t=p.shots,0,0
@@ -1470,7 +1508,7 @@ function dbg_input()
 		if (k=="w") p.w=p.w%#wpn+1
 		-- j: drop dbg_extra (tune) in
 		-- the middle
-		if (k=="j") add(it,{x=64,y=-4,e=extra[dbg_extra or "scoop"]})
+		if (k=="j") add(it,{x=64,y=-4,e=extra[dbg_extra or "scoop"],k=dbg_extra or "scoop"})
 	end
 end
 
@@ -1504,6 +1542,7 @@ end
 -- announcement, or for a shop the
 -- warp (no announcement)
 function next_screen()
+	skip_shop()
 	if lev.shop then
 		go_warp()
 	else
@@ -1514,6 +1553,8 @@ end
 
 function go_warp()
 	wt=0
+	-- docked aliens are gone
+	p.mt={}
 	-- warp sound loops on channel 2
 	sfx(8,2)
 	_update60=warp
@@ -1539,9 +1580,19 @@ function warp()
 	end
 end
 
+-- a shop only with money for the
+-- cheapest item, else on to the
+-- next level
+function skip_shop()
+	local m=999
+	for i in all(shop_items) do m=min(m,i[2]) end
+	if (lev.shop and p.money<m) start_level()
+end
+
 -- shop or announcement of the
 -- level that comes next
 function arrive()
+	skip_shop()
 	if lev.shop then
 		shop_open()
 	else
@@ -1552,6 +1603,7 @@ end
 
 -- ====== meteor storm ======
 function storm_go()
+	p.mt={}
 	-- sg/sb: gm flown/boosted,
 	-- st/sbt: frames/boosted frames,
 	-- sw: frames since the end
@@ -1607,22 +1659,25 @@ function storm()
 	booms()
 	if (not sw or sok) spr(19+til,p.x,p.y)
 	print(flr(sg).."/"..storm_gm.." gm",1,1,f>1 and 10 or 7)
+	-- white flash: no normal level
+	if (st<=storm_flash) cls(7)
 	hud()
 	if sw==dead_time then
 		-- bonus only when it went
-		-- through: boosted gm count
-		-- double, nearly all the time
-		-- boosted: full boost bonus
+		-- through nearly all the time
+		-- boosted (storm_full): boosted
+		-- gm count double, plus the
+		-- full boost bonus and money
 		sbon,sfull=0,sok and sbt>st*storm_full
-		if (sok) sbon=flr(sb)*(gm_pts>>16)
 		if sfull then
-			sbon+=storm_bonus>>16
+			sbon=flr(sb)*(gm_pts>>16)+(storm_bonus>>16)
 			p.money+=storm_money
 		end
 		-- x2/x5 count for the bonus too
 		sbon*=p.mult
 		score+=sbon
 		save_hi()
+		log("storm",sok and "ok" or "hit",flr(sg))
 		bt=between_time*2
 		_update60=storm_end
 	end
@@ -1652,11 +1707,12 @@ function storm_end()
 	stars()
 	mid_print("meteor storm",34,10)
 	mid_print(flr(sg).." of "..storm_gm.." gm",46,11)
-	if sok then
-		mid_print("speed bonus "..tostr(sbon,2),56,11)
-		if (sfull) mid_print("full boost! +"..storm_money.." money",66,10)
+	if (sok) mid_print("full speed "..flr(sbt/st*100).."%",56,11)
+	if sfull then
+		mid_print("speed bonus "..tostr(sbon,2),66,10)
+		mid_print("+"..storm_money.." money",74,10)
 	else
-		mid_print("no bonus",56,8)
+		mid_print("no bonus",66,8)
 	end
 	mid_print("score "..tostr(score,2),84,7)
 	bt-=1

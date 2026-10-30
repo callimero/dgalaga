@@ -59,7 +59,8 @@ U238, Anti und Rot, je wertvoller, desto seltener. Vor einem Shop geht es
 durch einen **Warp** (das Sternfeld wird schnell und blau), dann wird
 eingekauft: Extra Speed, Extra Bullet, Double/Triple Shot, Less Speed,
 **Auto Fire** und Extra Life. Am Spielende zählt das übrige Geld ×100 als
-Punkte. Der **Highscore** wird gespeichert.
+Punkte. Der **Highscore** wird gespeichert. Reicht das Geld nicht einmal
+für den billigsten Artikel, wird der Shop samt Warp übersprungen.
 
 ## Eigene Level bauen – ohne PICO-8 🛠️
 
@@ -84,7 +85,7 @@ mit dem Schiff darunter fliegt:
 | **Auto Fire** | Feuertaste halten feuert automatisch (geht bei Lebensverlust verloren) |
 | **Armor** | fängt einen Treffer ab, bis zu 4 (hellblaue Punkte über der Lebensanzeige) |
 | **Punkte ×2 / ×5** | 30 Sekunden lang doppelte bzw. fünffache Punkte |
-| **Scoop** | ein grüner Energietrichter saugt 10 Sekunden lang kleine Aliens an: zwei docken links und rechts an, schießen mit und fangen Treffer ab; weitere werden aus dem Bild geschleudert |
+| **Scoop** | ein grüner Energietrichter saugt 10 Sekunden lang kleine Aliens an: zwei docken links und rechts an, schießen mit und fangen Treffer ab – sie halten bis zum nächsten Warp; weitere werden aus dem Bild geschleudert |
 | **Meteor Storm** | beendet das Level und schickt das Schiff in einen Meteoritensturm (siehe unten) |
 | **Totenköpfe** (rot/blau/grün) | Vorsicht: Waffe und Tempo sinken – drei hintereinander lösen später etwas aus |
 
@@ -98,13 +99,13 @@ Totenkopf-Kombinationen folgen.
 Ein Pazifisten-Level: Über das Extra oder manchmal aus dem Warp heraus
 gerät man in einen Meteoritensturm. Schießen geht nicht, nur ausweichen.
 
-- Der Sturm ist 30 **Galagometer** (Gm) lang, normal fliegt man 1 Gm pro
-  Sekunde. Jedes Gm bringt 50 Punkte.
-- **Feuertaste halten** fliegt schneller – man ist früher durch, und
-  schnell geflogene Gm zählen doppelt.
-- Wer fast die ganze Zeit (über 90 %) Vollgas gibt, bekommt zusätzlich
-  **1000 Punkte und 500 Geld**. Laufende Punkte ×2/×5
-  zählen für alles mit, auch für den Bonus.
+- Ein weißer Blitz kündigt ihn an. Der Sturm ist 60 **Galagometer** (Gm)
+  lang, normal fliegt man 1 Gm pro Sekunde. Jedes Gm bringt 50 Punkte.
+- **Feuertaste halten** fliegt schneller – man ist früher durch.
+- Den **Bonus** gibt es nur für Vollgas: Wer über 90 % der Zeit die
+  Feuertaste hält (im Original müssen es 100 % sein), bekommt die schnell
+  geflogenen Gm doppelt, dazu **1000 Punkte und 500 Geld**. Darunter gibt
+  es keinen Bonus. Laufende Punkte ×2/×5 zählen für alles mit.
 - Ein Treffer kostet **kein Leben**, beendet aber den Sturm: Die Punkte
   bis dahin bleiben, Bonus und Geld gibt es keine.
 - Nach dem Ziel kommen keine neuen Meteore mehr, den letzten muss man
@@ -156,6 +157,8 @@ gerät man in einen Meteoritensturm. Schießen geht nicht, nur ausweichen.
 - **Gegnerarten:** rot, grün, blau, UFO, kleine Fliegen (kleine Aliens mit Flattern und
   8 Drehrichtungen), dazu die großen Käfer, Fliegen und Mutterschiffe –
   jede große Art mit eigenem Geschoss (Säure, rote und grüne Kugeln)
+- **Blaue Käfer** werden nach zwei Treffern grün und fliegen weiter – erst
+  ein dritter Treffer erledigt sie
 - **Titelbild und Levelansage:** jede Stage wird mit einem eigenen Spruch
   angekündigt („its a trap. a flytrap.“), Bonusrunden blinken schon dort
 - **Sound:** Kanone, Alien-Schüsse, trudelnde Aliens, Extras und
@@ -192,6 +195,20 @@ Im Browser: Pfeiltasten, **Z** oder **X** schießt (auch C/V/N/M).
 | `editor/index.html` | Level-Editor ([online](https://callimero.github.io/dgalaga/editor/)): lädt die Cart, Formation und Bézier-Ströme per Maus, Vorschau mit den echten Sprites, speichert direkt in die Cart (Chrome/Edge) mit nummerierten Backups – oder ganz ohne PICO-8: Online-Cart laden, Level bauen, im Browser spielen, Cart herunterladen |
 | `tools/levels.py` | Notlösung: schreibt Level per Skript in die Map |
 | `tools/strip.py` | entfernt Kommentare für den PNG- und Web-Export |
+| `stats/index.html` | Statistik ([online](https://callimero.github.io/dgalaga/stats/)): wertet das Spiel-Log aus (siehe unten) |
+
+## Statistik 📊
+
+Zum Austarieren kann die Cart ein Log schreiben: In `tune()` (Tab 0)
+`dbg_log=true` setzen, dann legt PICO-8 neben der Cart eine
+`dgalaga_log.csv` an – eine Zeile pro Ereignis (Level, gefallene und
+eingesammelte Extras, Münzen, Meteorsturm, Game over). Die
+[Statistik-Seite](https://callimero.github.io/dgalaga/stats/) liest die
+Datei direkt im Browser (es wird nichts hochgeladen) und zeigt Spiele,
+Abschüsse, Level, Highscore, wie oft welches Extra fällt und eingesammelt
+wird, Münzen, Level-Typen und Score pro Spiel. Mit der Cart dazu vergleicht
+sie die eingestellte Häufigkeit der Extras mit der gemessenen. Chrome/Edge
+merken sich die Datei, danach reicht „Neu laden“.
 
 ## Hinweis
 

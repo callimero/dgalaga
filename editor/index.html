@@ -161,7 +161,7 @@ function readConsts(text){
     kami_dx:num('kami_dx',10),kami_edge:num('kami_edge',12),kami_dy:num('kami_dy',2),kami_spd:num('kami_spd',1.6),kami_low:num('kami_low',85),
     kami_brake:num('kami_brake',0.05),kami_fan:num('kami_fan',0.05)};
   const km=lua.match(/kinds=\{([^}]*)\}/);
-  c.kinds=km? km[1].split(',').map(s=>s.trim().replace(/"/g,'')) : ['red','green','blue','bug'];
+  c.kinds=km? km[1].split(',').map(s=>s.trim().replace(/"/g,'')) : ['red','draco','blueb','bug'];
   c.spr={}; c.size={}; c.rot={}; c.big={};
   for(const k of c.kinds){
     const m=lua.match(new RegExp('\\b'+k+'=\\{\\{(\\d+)[^\\n]*'));

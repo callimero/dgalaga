@@ -44,8 +44,8 @@ harness = '''-- explosion test (made by
 
 ''' + anim + '''
 
-small={"red","green","blue","ufo","fly","bug"}
-big={"bugm","mother","flym","greenm"}
+small={"red","draco","blueb","ufo","fly","bug","greenb"}
+big={"bugm","mother","flym","dracom"}
 loop_t=100      -- frames per loop
 
 pt={}
